@@ -10,11 +10,9 @@
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
         textarea#notation { width: 100%; grid-column: span 3; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
-        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
         button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0056b3; }
-        #addStaveBtn { background: #6f42c1; }
-        #addStaveBtn:hover { background: #59359a; }
         #printBtn { background: #28a745; }
         #printBtn:hover { background: #218838; }
         #canvas-container { background-color: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; max-width: 100%; display: flex; justify-content: center; }
@@ -59,15 +57,14 @@
         <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, |, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q, bar.double</textarea>
 
         <div class="command-reference">
-            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code></div>
-            <div><strong>Durations:</strong> <code>w, h, q, 8, 16</code></div>
-            <div><strong>Barlines:</strong> <code>|</code>, <code>bar.double</code>, <code>bar.ritornello</code></div>
-            <div><strong>Add Stave:</strong> Clicar no botão adiciona um novo compasso/pauta.</div>
+            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code> (Quarter C4)</div>
+            <div><strong>Durations:</strong> <code>w</code> (1/1), <code>h</code> (1/2), <code>q</code> (1/4), <code>8</code> (1/8), <code>16</code> (1/16)</div>
+            <div><strong>Barlines:</strong> <code>|</code> or <code>bar.single</code>, <code>bar.double</code>, <code>bar.ritornello</code></div>
+            <div><strong>Stem Rule:</strong> Stems go DOWN automatically from <b>B4</b> up.</div>
         </div>
 
         <div class="btn-group">
             <button id="renderBtn">Update Sheet</button>
-            <button id="addStaveBtn">+ Add Pentagrama</button>
             <button id="printBtn">Print / Save as PDF</button>
         </div>
     </div>
@@ -81,26 +78,28 @@
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
             const noteIndex = noteNames.indexOf(pitch[0].toUpperCase());
             const val = (octave * 7) + noteIndex;
-            return (clef === 'treble' ? val >= 34 : val >= 22) ? VF.Stem.DOWN : VF.Stem.UP;
+            if (clef === 'treble') return val >= 34 ? VF.Stem.DOWN : VF.Stem.UP;
+            return val >= 22 ? VF.Stem.DOWN : VF.Stem.UP;
         }
 
+        // Nova função para agrupar notas em compassos (Measures)
         function parseToMeasures(text, clef) {
-            const sections = text.split(',');
+            const items = text.split(',');
             const measures = [];
             let currentNotes = [];
             const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
 
-            sections.forEach(item => {
+            items.forEach(item => {
                 const clean = item.trim();
-                const barlines = { 
-                    '|': VF.Barline.type.SINGLE, 
-                    'bar.single': VF.Barline.type.SINGLE, 
-                    'bar.double': VF.Barline.type.DOUBLE, 
-                    'bar.ritornello': VF.Barline.type.REPEAT_END 
+                const barTypes = {
+                    '|': VF.Barline.type.SINGLE,
+                    'bar.single': VF.Barline.type.SINGLE,
+                    'bar.double': VF.Barline.type.DOUBLE,
+                    'bar.ritornello': VF.Barline.type.REPEAT_END
                 };
 
-                if (barlines[clean]) {
-                    measures.push({ notes: currentNotes, barline: barlines[clean] });
+                if (barTypes[clean]) {
+                    measures.push({ notes: currentNotes, barline: barTypes[clean] });
                     currentNotes = [];
                 } else {
                     const match = clean.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
@@ -134,31 +133,35 @@
             const clefValue = document.getElementById('clef').value;
             const measures = parseToMeasures(document.getElementById('notation').value, clefValue);
             
-            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            const measureWidth = 250;
+            // Configurações de layout
+            const measureWidth = 240;
             const measuresPerRow = 3;
-            const totalWidth = 800;
-            const rows = Math.ceil(measures.length / measuresPerRow);
+            const rowHeight = 150;
+            const totalRows = Math.ceil(measures.length / measuresPerRow);
             
-            renderer.resize(totalWidth, (rows * 150) + 50);
+            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            renderer.resize(800, (totalRows * rowHeight) + 50);
             const context = renderer.getContext();
 
-            let x = 20;
+            let x = 10;
             let y = 40;
 
-            measures.forEach((m, i) => {
-                if (i > 0 && i % measuresPerRow === 0) {
-                    x = 20;
-                    y += 150;
+            measures.forEach((m, index) => {
+                // Se ultrapassar o número de compassos por linha, pula para a linha de baixo
+                if (index > 0 && index % measuresPerRow === 0) {
+                    x = 10;
+                    y += rowHeight;
                 }
 
                 const stave = new VF.Stave(x, y, measureWidth);
-                if (x === 20) {
+                
+                // Adiciona clave e fórmulas apenas no início de cada linha
+                if (x === 10) {
                     stave.addClef(clefValue)
                          .addKeySignature(document.getElementById('keySig').value)
                          .addTimeSignature(document.getElementById('timeSig').value);
                 }
-                
+
                 stave.setEndBarline(m.barline).setContext(context).draw();
 
                 if (m.notes.length > 0) {
@@ -167,17 +170,10 @@
                     new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
                     voice.draw(context, stave);
                 }
+
                 x += measureWidth;
             });
         }
-
-        // Add Stave Function
-        document.getElementById('addStaveBtn').addEventListener('click', () => {
-            const area = document.getElementById('notation');
-            area.value = area.value.trim().replace(/,$/, '') + ', |, ';
-            render();
-            area.focus();
-        });
 
         document.getElementById('renderBtn').addEventListener('click', render);
         document.getElementById('notation').addEventListener('input', render);
