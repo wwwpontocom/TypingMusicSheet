@@ -64,99 +64,102 @@
 
     <div id="canvas-container"></div>
 
-    <script>
-        const VF = Vex.Flow;
+   <div class="btn-group">
+    <button id="renderBtn">Update Sheet</button> <button id="printBtn">Print / Save as PDF</button>
+</div>
+<script>
+    const VF = Vex.Flow;
 
-        function getStemDirection(pitch, octave, clef) {
-            const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-            const noteIndex = noteNames.indexOf(pitch[0].toUpperCase());
-            const val = (octave * 7) + noteIndex;
+    // Lógica para inverter a haste a partir de B4
+    function getStemDirection(pitch, octave, clef) {
+        const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+        const noteIndex = noteNames.indexOf(pitch[0].toUpperCase());
+        const val = (octave * 7) + noteIndex;
 
-            // Para Clave de Sol (Treble): B4 é o índice 34 (4*7 + 6)
-            // Se nota >= B4, haste para baixo
-            if (clef === 'treble') {
-                return val >= 34 ? VF.Stem.DOWN : VF.Stem.UP;
-            } else {
-                // Para Clave de Fá (Bass): D3 é a linha central (índice 22)
-                return val >= 22 ? VF.Stem.DOWN : VF.Stem.UP;
-            }
+        if (clef === 'treble') {
+            return val >= 34 ? VF.Stem.DOWN : VF.Stem.UP; // 34 é o índice de B4
+        } else {
+            return val >= 22 ? VF.Stem.DOWN : VF.Stem.UP; // D3 para Clave de Fá
         }
+    }
 
-        function parseNotation(text, clef) {
-            const sections = text.split(',');
-            const vexNotes = [];
-            const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
+    function parseNotation(text, clef) {
+        const sections = text.split(',');
+        const vexNotes = [];
+        const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
 
-            sections.forEach(item => {
-                const cleanItem = item.trim();
-                
-                // Barras de Compasso
-                if (cleanItem === 'bar.double') {
-                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.DOUBLE);
-                } else if (cleanItem === 'bar.ritornello') {
-                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.REPEAT_END);
-                } else if (cleanItem === 'bar.single' || cleanItem === '|') {
-                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.SINGLE);
-                } else {
-                    const match = cleanItem.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
-                    if (match) {
-                        const count = parseInt(match[1]);
-                        const fullPitch = match[2];
-                        const pitchName = fullPitch.match(/[A-Ga-g#b]+/)[0];
-                        const octave = parseInt(fullPitch.match(/\d+/)[0]);
-                        const dur = durationMap[match[3]] || 'q';
-                        const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
+        sections.forEach(item => {
+            const cleanItem = item.trim();
+            
+            // Suporte para barras de compasso simples (| ou bar.single)
+            if (cleanItem === 'bar.double') {
+                if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.DOUBLE);
+            } else if (cleanItem === 'bar.ritornello') {
+                if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.REPEAT_END);
+            } else if (cleanItem === 'bar.single' || cleanItem === '|') {
+                if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.SINGLE);
+            } else {
+                const match = cleanItem.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
+                if (match) {
+                    const count = parseInt(match[1]);
+                    const fullPitch = match[2];
+                    const pitchName = fullPitch.match(/[A-Ga-g#b]+/)[0];
+                    const octave = parseInt(fullPitch.match(/\d+/)[0]);
+                    const dur = durationMap[match[3]] || 'q';
+                    const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
 
-                        for (let i = 0; i < count; i++) {
-                            const note = new VF.StaveNote({ 
-                                keys: [key], 
-                                duration: dur,
-                                stem_direction: getStemDirection(pitchName, octave, clef)
-                            });
-                            
-                            if (fullPitch.toLowerCase().includes('#')) note.addModifier(new VF.Accidental('#'), 0);
-                            if (fullPitch.toLowerCase().includes('b')) note.addModifier(new VF.Accidental('b'), 0);
-                            
-                            vexNotes.push(note);
-                        }
+                    for (let i = 0; i < count; i++) {
+                        const note = new VF.StaveNote({ 
+                            keys: [key], 
+                            duration: dur,
+                            stem_direction: getStemDirection(pitchName, octave, clef)
+                        });
+                        
+                        if (fullPitch.toLowerCase().includes('#')) note.addModifier(new VF.Accidental('#'), 0);
+                        if (fullPitch.toLowerCase().includes('b')) note.addModifier(new VF.Accidental('b'), 0);
+                        
+                        vexNotes.push(note);
                     }
                 }
-            });
-            return vexNotes;
-        }
-
-        function render() {
-            const container = document.getElementById('canvas-container');
-            container.innerHTML = ''; 
-
-            const clefValue = document.getElementById('clef').value;
-            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(750, 150);
-            const context = renderer.getContext();
-
-            const stave = new VF.Stave(10, 20, 700);
-            stave.addClef(clefValue)
-                 .addKeySignature(document.getElementById('keySig').value)
-                 .addTimeSignature(document.getElementById('timeSig').value);
-            stave.setContext(context).draw();
-
-            const notes = parseNotation(document.getElementById('notation').value, clefValue);
-
-            if (notes.length > 0) {
-                const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-                voice.addTickables(notes);
-                new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-                voice.draw(context, stave);
             }
+        });
+        return vexNotes;
+    }
+
+    function render() {
+        const container = document.getElementById('canvas-container');
+        container.innerHTML = ''; 
+
+        const clefValue = document.getElementById('clef').value;
+        const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+        renderer.resize(750, 150);
+        const context = renderer.getContext();
+
+        const stave = new VF.Stave(10, 20, 700);
+        stave.addClef(clefValue)
+             .addKeySignature(document.getElementById('keySig').value)
+             .addTimeSignature(document.getElementById('timeSig').value);
+        stave.setContext(context).draw();
+
+        const notes = parseNotation(document.getElementById('notation').value, clefValue);
+
+        if (notes.length > 0) {
+            const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+            voice.addTickables(notes);
+            new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+            voice.draw(context, stave);
         }
+    }
 
-        document.getElementById('notation').addEventListener('input', render);
-        document.getElementById('clef').addEventListener('change', render);
-        document.getElementById('keySig').addEventListener('change', render);
-        document.getElementById('timeSig').addEventListener('input', render);
-        document.getElementById('printBtn').addEventListener('click', () => window.print());
+    // Listeners
+    document.getElementById('renderBtn').addEventListener('click', render); // Botão volta a funcionar
+    document.getElementById('notation').addEventListener('input', render);
+    document.getElementById('clef').addEventListener('change', render);
+    document.getElementById('keySig').addEventListener('change', render);
+    document.getElementById('timeSig').addEventListener('input', render);
+    document.getElementById('printBtn').addEventListener('click', () => window.print());
 
-        window.onload = render;
-    </script>
+    window.onload = render;
+</script>
 </body>
 </html>
