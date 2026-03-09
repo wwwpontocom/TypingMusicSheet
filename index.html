@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sheet Music Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; }
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
+        textarea#notation { width: 100%; grid-column: span 3; height: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        #printBtn { background: #28a745; }
+        #canvas-container { background-color: white; margin-top: 20px; padding: 10px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        @media print {
+            .controls, #help-text, h1 { display: none; }
+            #canvas-container { box-shadow: none; border: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Sheet Music Generator</h1>
+
+    <div id="help-text" style="max-width: 600px; font-size: 0.9em; color: #555;">
+        <p><strong>Syntax:</strong> <code>[Count] [Note][Octave] [Duration]</code>. 
+        Example: <code>2 C4 q</code> (2 quarter notes). Durations: <b>w</b>(whole), <b>h</b>(half), <b>q</b>(quarter), <b>8</b>(eighth).</p>
+    </div>
+
+    <div class="controls">
+        <div>
+            <label for="clef">Clef:</label>
+            <select id="clef">
+                <option value="treble">Treble (G)</option>
+                <option value="bass">Bass (F)</option>
+            </select>
+        </div>
+        <div>
+            <label for="keySig">Key:</label>
+            <select id="keySig">
+                <option value="C">C Major</option>
+                <option value="G">G Major</option>
+                <option value="F">F Major</option>
+                <option value="Eb">Eb Major</option>
+            </select>
+        </div>
+        <div>
+            <label for="timeSig">Time Signature:</label>
+            <input type="text" id="timeSig" value="4/4">
+        </div>
+
+        <label for="notation">Notation Data:</label>
+        <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, bar.double, 2 G4 h, bar.ritornello</textarea>
+
+        <div class="btn-group">
+            <button id="renderBtn">Update Sheet</button>
+            <button id="printBtn">Print / PDF</button>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // Use VexFlow from the global Vex object
+        const VF = Vex.Flow;
+
+        function parseNotation(text) {
+            const sections = text.split(',');
+            const vexNotes = [];
+            
+            // Map simple duration letters to VexFlow values
+            const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
+
+            sections.forEach(item => {
+                const cleanItem = item.trim();
+
+                if (cleanItem === 'bar.double') {
+                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.DOUBLE);
+                } else if (cleanItem === 'bar.ritornello') {
+                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.REPEAT_END);
+                } else {
+                    // Match pattern: [count] [note+octave] [duration]
+                    const match = cleanItem.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
+                    if (match) {
+                        const count = parseInt(match[1]);
+                        const pitch = match[2];
+                        const dur = durationMap[match[3]] || 'q';
+
+                        const keys = [pitch.replace(/([A-G][#b]?)/, '$1/')]; // Format: C/4 or C#/4
+
+                        for (let i = 0; i < count; i++) {
+                            const note = new VF.StaveNote({ keys: keys, duration: dur });
+                            if (pitch.includes('#')) note.addModifier(new VF.Accidental('#'));
+                            if (pitch.includes('b')) note.addModifier(new VF.Accidental('b'));
+                            vexNotes.push(note);
+                        }
+                    }
+                }
+            });
+            return vexNotes;
+        }
+
+        function render() {
+            const container = document.getElementById('canvas-container');
+            container.innerHTML = ''; 
+
+            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            renderer.resize(700, 150);
+            const context = renderer.getContext();
+
+            const stave = new VF.Stave(10, 20, 650);
+            stave.addClef(document.getElementById('clef').value)
+                 .addKeySignature(document.getElementById('keySig').value)
+                 .addTimeSignature(document.getElementById('timeSig').value);
+            stave.setContext(context).draw();
+
+            const notes = parseNotation(document.getElementById('notation').value);
+
+            if (notes.length > 0) {
+                // Calculate total ticks so the voice doesn't error out
+                const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+                voice.addTickables(notes);
+                
+                new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                voice.draw(context, stave);
+            }
+        }
+
+        document.getElementById('renderBtn').addEventListener('click', render);
+        document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+        // Run once on load
+        render();
+    </script>
+</body>
+</html>
