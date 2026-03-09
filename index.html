@@ -14,9 +14,8 @@
         button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0056b3; }
         #printBtn { background: #28a745; }
-        #canvas-container { background: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 800px; min-height: 200px; }
-        .command-reference { grid-column: span 3; background: #eef2f7; padding: 10px; border-radius: 4px; font-size: 0.85em; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .spacing-control { grid-column: span 3; display: flex; align-items: center; gap: 15px; background: #fff; padding: 10px; border-top: 1px solid #eee; }
+        #canvas-container { background: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 850px; min-height: 200px; display: block; }
+        .spacing-control { grid-column: span 3; display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid #eee; }
         
         @media print {
             .controls, h1, .command-reference { display: none; }
@@ -50,14 +49,9 @@
         <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, |, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q, |, 1 D5 q, 1 E5 q, 1 F5 q, 1 G5 q, bar.double</textarea>
 
         <div class="spacing-control">
-            <label for="noteSpacing">Note Spacing:</label>
-            <input type="range" id="noteSpacing" min="50" max="250" value="150" step="10">
-            <span id="spacingValue">150</span>
-        </div>
-
-        <div class="command-reference">
-            <div><strong>Notes:</strong> <code>1 C4 q</code> | <strong>Bar:</strong> <code>|</code>, <code>bar.double</code></div>
-            <div><strong>Invert Stems:</strong> Automático a partir do <b>B4</b>.</div>
+            <label for="noteSpacing">Note Spacing (Measure Width):</label>
+            <input type="range" id="noteSpacing" min="150" max="400" value="250" step="10">
+            <span id="spacingVal">250px</span>
         </div>
 
         <div class="btn-group">
@@ -82,20 +76,14 @@
             const items = text.split(',');
             const measures = [];
             let currentNotes = [];
-            let lastBarline = VF.Barline.type.SINGLE;
             const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
 
             items.forEach(item => {
                 const clean = item.trim();
-                const barMatches = {
-                    '|': VF.Barline.type.SINGLE,
-                    'bar.single': VF.Barline.type.SINGLE,
-                    'bar.double': VF.Barline.type.DOUBLE,
-                    'bar.ritornello': VF.Barline.type.REPEAT_END
-                };
+                const barlines = { '|': VF.Barline.type.SINGLE, 'bar.single': VF.Barline.type.SINGLE, 'bar.double': VF.Barline.type.DOUBLE, 'bar.ritornello': VF.Barline.type.REPEAT_END };
 
-                if (barMatches[clean] !== undefined) {
-                    measures.push({ notes: currentNotes, barline: barMatches[clean] });
+                if (barlines[clean]) {
+                    measures.push({ notes: currentNotes, type: barlines[clean] });
                     currentNotes = [];
                 } else {
                     const match = clean.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
@@ -107,10 +95,7 @@
                         const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
 
                         for (let i = 0; i < count; i++) {
-                            const note = new VF.StaveNote({ 
-                                keys: [key], duration: durationMap[match[3]] || 'q',
-                                stem_direction: getStemDirection(pitchName, octave, clef)
-                            });
+                            const note = new VF.StaveNote({ keys: [key], duration: durationMap[match[3]] || 'q', stem_direction: getStemDirection(pitchName, octave, clef) });
                             if (fullPitch.toLowerCase().includes('#')) note.addModifier(new VF.Accidental('#'), 0);
                             if (fullPitch.toLowerCase().includes('b')) note.addModifier(new VF.Accidental('b'), 0);
                             currentNotes.push(note);
@@ -118,62 +103,50 @@
                     }
                 }
             });
-            if (currentNotes.length > 0) measures.push({ notes: currentNotes, barline: VF.Barline.type.SINGLE });
+            if (currentNotes.length > 0) measures.push({ notes: currentNotes, type: VF.Barline.type.SINGLE });
             return measures;
         }
 
         function render() {
             const container = document.getElementById('canvas-container');
             container.innerHTML = '';
-            const clefValue = document.getElementById('clef').value;
-            const measures = parseToMeasures(document.getElementById('notation').value, clefValue);
-            const spacing = parseInt(document.getElementById('noteSpacing').value);
-            document.getElementById('spacingValue').innerText = spacing;
-
-            const width = 750;
+            const mWidth = parseInt(document.getElementById('noteSpacing').value);
+            document.getElementById('spacingVal').innerText = mWidth + 'px';
+            
+            const measures = parseToMeasures(document.getElementById('notation').value, document.getElementById('clef').value);
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(width, (Math.ceil(measures.length / 3) * 160) + 60);
+            
+            const measuresPerRow = Math.floor(800 / mWidth);
+            const rows = Math.ceil(measures.length / measuresPerRow);
+            renderer.resize(850, (rows * 160) + 100);
             const context = renderer.getContext();
 
             let x = 10;
             let y = 40;
-            const measureWidth = 240;
 
-            measures.forEach((m, index) => {
-                if (index > 0 && index % 3 === 0) {
-                    x = 10;
-                    y += 160;
-                }
+            measures.forEach((m, i) => {
+                if (i > 0 && i % measuresPerRow === 0) { x = 10; y += 160; }
 
-                const stave = new VF.Stave(x, y, measureWidth);
+                const stave = new VF.Stave(x, y, mWidth);
                 if (x === 10) {
-                    stave.addClef(clefValue)
+                    stave.addClef(document.getElementById('clef').value)
                          .addKeySignature(document.getElementById('keySig').value)
                          .addTimeSignature(document.getElementById('timeSig').value);
                 }
-                
-                // Força o desenho da barra final do compasso
-                stave.setEndBarline(m.barline);
-                stave.setContext(context).draw();
+                stave.setEndBarline(m.type).setContext(context).draw();
 
                 if (m.notes.length > 0) {
                     const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
                     voice.addTickables(m.notes);
-                    // Aplica o espaçamento customizado aqui
-                    new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave, { align_rests: true });
+                    new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
                     voice.draw(context, stave);
                 }
-
-                x += measureWidth;
+                x += mWidth;
             });
         }
 
-        // Listeners
-        ['notation', 'clef', 'keySig', 'timeSig', 'noteSpacing'].forEach(id => 
-            document.getElementById(id).addEventListener('input', render));
-        document.getElementById('renderBtn').addEventListener('click', render);
+        ['notation', 'clef', 'keySig', 'timeSig', 'noteSpacing'].forEach(id => document.getElementById(id).addEventListener('input', render));
         document.getElementById('printBtn').addEventListener('click', () => window.print());
-
         window.onload = render;
     </script>
 </body>
