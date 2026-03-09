@@ -110,8 +110,17 @@
                                 keys: [key], duration: dur,
                                 stem_direction: getStemDirection(pitchName, octave, clef)
                             });
-                            if (fullPitch.toLowerCase().includes('#')) note.addModifier(new VF.Accidental('#'), 0);
-                            if (fullPitch.toLowerCase().includes('b')) note.addModifier(new VF.Accidental('b'), 0);
+                            
+                            // Correção para Si Natural vs Si Bemol
+                            if (fullPitch.includes('#')) {
+                                note.addModifier(new VF.Accidental('#'), 0);
+                            } else if (fullPitch.toLowerCase().includes('b')) {
+                                // Só adiciona bemol se não for a letra B da nota, ou se for explicitamente Bb
+                                if (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb')) {
+                                    note.addModifier(new VF.Accidental('b'), 0);
+                                }
+                            }
+                            
                             vexNotes.push(note);
                         }
                     }
@@ -130,9 +139,7 @@
             const notes = parseNotation(document.getElementById('notation').value, clefValue);
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            
-            // Lógica para quebrar linhas (Staves)
-            const notesPerLine = 8; // Ajuste este número para caber mais ou menos notas por linha
+            const notesPerLine = 8; 
             const numLines = Math.ceil(notes.length / notesPerLine) || 1;
             
             renderer.resize(750, numLines * 150 + 50);
@@ -145,13 +152,8 @@
                 const staveWidth = 700;
 
                 const stave = new VF.Stave(x, y, staveWidth);
-                
-                // Adiciona Clave e Armadura no início de cada linha
                 stave.addClef(clefValue).addKeySignature(keySig);
-                
-                // Adiciona Time Signature apenas na primeira linha
                 if (i === 0) stave.addTimeSignature(timeSig);
-
                 stave.setContext(context).draw();
 
                 if (lineNotes.length > 0) {
