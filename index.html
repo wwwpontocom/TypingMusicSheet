@@ -15,7 +15,7 @@
         button:hover { background: #0056b3; }
         #printBtn { background: #28a745; }
         #printBtn:hover { background: #218838; }
-        #canvas-container { background-color: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; max-width: 100%; display: flex; justify-content: center; }
+        #canvas-container { background-color: white; margin-top: 20px; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; max-width: 100%; display: flex; justify-content: center; }
         
         .command-reference { grid-column: span 3; background: #eef2f7; padding: 10px; border-radius: 4px; font-size: 0.85em; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .command-reference code { background: #fff; padding: 2px 4px; border-radius: 3px; border: 1px solid #ddd; }
@@ -23,7 +23,7 @@
         @media print {
             .controls, #help-text, h1, .command-reference { display: none; }
             body { background: white; padding: 0; }
-            #canvas-container { box-shadow: none; border: none; margin: 0; }
+            #canvas-container { box-shadow: none; border: none; margin: 0; padding: 0; }
         }
     </style>
 </head>
@@ -54,13 +54,13 @@
         </div>
 
         <label for="notation">Notation Data:</label>
-        <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, |, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q, bar.double</textarea>
+        <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, |, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q, |, 1 D5 q, 1 E5 q, 1 F5 q, 1 G5 q, bar.double</textarea>
 
         <div class="command-reference">
             <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code> (Quarter C4)</div>
-            <div><strong>Durations:</strong> <code>w</code> (1/1), <code>h</code> (1/2), <code>q</code> (1/4), <code>8</code> (1/8), <code>16</code> (1/16)</div>
-            <div><strong>Barlines:</strong> <code>|</code> or <code>bar.single</code>, <code>bar.double</code>, <code>bar.ritornello</code></div>
-            <div><strong>Stem Rule:</strong> Stems go DOWN automatically from <b>B4</b> up.</div>
+            <div><strong>Durations:</strong> <code>w</code>, <code>h</code>, <code>q</code>, <code>8</code>, <code>16</code></div>
+            <div><strong>Barlines:</strong> <code>|</code>, <code>bar.double</code>, <code>bar.ritornello</code></div>
+            <div><strong>Print:</strong> Ajustado para formato A4 vertical.</div>
         </div>
 
         <div class="btn-group">
@@ -78,18 +78,16 @@
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
             const noteIndex = noteNames.indexOf(pitch[0].toUpperCase());
             const val = (octave * 7) + noteIndex;
-            if (clef === 'treble') return val >= 34 ? VF.Stem.DOWN : VF.Stem.UP;
-            return val >= 22 ? VF.Stem.DOWN : VF.Stem.UP;
+            return (clef === 'treble' ? val >= 34 : val >= 22) ? VF.Stem.DOWN : VF.Stem.UP;
         }
 
-        // Nova função para agrupar notas em compassos (Measures)
         function parseToMeasures(text, clef) {
-            const items = text.split(',');
+            const sections = text.split(',');
             const measures = [];
             let currentNotes = [];
             const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
 
-            items.forEach(item => {
+            sections.forEach(item => {
                 const clean = item.trim();
                 const barTypes = {
                     '|': VF.Barline.type.SINGLE,
@@ -108,11 +106,12 @@
                         const fullPitch = match[2];
                         const pitchName = fullPitch.match(/[A-Ga-g#b]+/)[0];
                         const octave = parseInt(fullPitch.match(/\d+/)[0]);
+                        const dur = durationMap[match[3]] || 'q';
                         const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
 
                         for (let i = 0; i < count; i++) {
                             const note = new VF.StaveNote({ 
-                                keys: [key], duration: durationMap[match[3]] || 'q',
+                                keys: [key], duration: dur,
                                 stem_direction: getStemDirection(pitchName, octave, clef)
                             });
                             if (fullPitch.toLowerCase().includes('#')) note.addModifier(new VF.Accidental('#'), 0);
@@ -131,38 +130,35 @@
             container.innerHTML = ''; 
 
             const clefValue = document.getElementById('clef').value;
+            const keySigValue = document.getElementById('keySig').value;
+            const timeSigValue = document.getElementById('timeSig').value;
             const measures = parseToMeasures(document.getElementById('notation').value, clefValue);
-            
-            // Configurações de layout
-            const measureWidth = 240;
-            const measuresPerRow = 3;
-            const rowHeight = 150;
-            const totalRows = Math.ceil(measures.length / measuresPerRow);
-            
+
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(800, (totalRows * rowHeight) + 50);
+            const pageWidth = 750;
+            const measuresPerRow = 3; 
+            const measureWidth = (pageWidth - 20) / measuresPerRow;
+            
+            const rowCount = Math.ceil(measures.length / measuresPerRow);
+            renderer.resize(pageWidth, rowCount * 150 + 50);
             const context = renderer.getContext();
 
-            let x = 10;
-            let y = 40;
-
             measures.forEach((m, index) => {
-                // Se ultrapassar o número de compassos por linha, pula para a linha de baixo
-                if (index > 0 && index % measuresPerRow === 0) {
-                    x = 10;
-                    y += rowHeight;
-                }
+                const col = index % measuresPerRow;
+                const row = Math.floor(index / measuresPerRow);
+                const x = 10 + (col * measureWidth);
+                const y = 40 + (row * 150);
 
                 const stave = new VF.Stave(x, y, measureWidth);
                 
-                // Adiciona clave e fórmulas apenas no início de cada linha
-                if (x === 10) {
-                    stave.addClef(clefValue)
-                         .addKeySignature(document.getElementById('keySig').value)
-                         .addTimeSignature(document.getElementById('timeSig').value);
+                // Adiciona Clave, Armadura e Fórmula apenas no início de cada linha
+                if (col === 0) {
+                    stave.addClef(clefValue).addKeySignature(keySigValue);
+                    if (row === 0) stave.addTimeSignature(timeSigValue);
                 }
 
-                stave.setEndBarline(m.barline).setContext(context).draw();
+                stave.setEndBarline(m.barline);
+                stave.setContext(context).draw();
 
                 if (m.notes.length > 0) {
                     const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
@@ -170,8 +166,6 @@
                     new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
                     voice.draw(context, stave);
                 }
-
-                x += measureWidth;
             });
         }
 
