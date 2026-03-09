@@ -23,7 +23,7 @@
         @media print {
             .controls, #help-text, h1, .command-reference { display: none; }
             body { background: white; padding: 0; }
-            #canvas-container { box-shadow: none; border: none; margin: 0; }
+            #canvas-container { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; }
         }
     </style>
 </head>
@@ -57,10 +57,10 @@
         <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, |, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q, bar.double</textarea>
 
         <div class="command-reference">
-            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code> (Quarter C4)</div>
-            <div><strong>Durations:</strong> <code>w</code> (1/1), <code>h</code> (1/2), <code>q</code> (1/4), <code>8</code> (1/8), <code>16</code> (1/16)</div>
-            <div><strong>Barlines:</strong> <code>|</code> or <code>bar.single</code>, <code>bar.double</code>, <code>bar.ritornello</code></div>
-            <div><strong>Stem Rule:</strong> Stems go DOWN automatically from <b>B4</b> up.</div>
+            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code></div>
+            <div><strong>Durations:</strong> <code>w, h, q, 8, 16</code></div>
+            <div><strong>Barlines:</strong> Use <code>|</code>, <code>bar.double</code> para fechar blocos.</div>
+            <div><strong>A4 Print:</strong> Agora as notas quebram em novas linhas automaticamente.</div>
         </div>
 
         <div class="btn-group">
@@ -74,17 +74,11 @@
     <script>
         const VF = Vex.Flow;
 
-        // Stem logic: B4 (index 34) and above in Treble, D3 (index 22) and above in Bass
         function getStemDirection(pitch, octave, clef) {
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
             const noteIndex = noteNames.indexOf(pitch[0].toUpperCase());
             const val = (octave * 7) + noteIndex;
-
-            if (clef === 'treble') {
-                return val >= 34 ? VF.Stem.DOWN : VF.Stem.UP;
-            } else {
-                return val >= 22 ? VF.Stem.DOWN : VF.Stem.UP;
-            }
+            return (clef === 'treble' ? val >= 34 : val >= 22) ? VF.Stem.DOWN : VF.Stem.UP;
         }
 
         function parseNotation(text, clef) {
@@ -113,14 +107,11 @@
 
                         for (let i = 0; i < count; i++) {
                             const note = new VF.StaveNote({ 
-                                keys: [key], 
-                                duration: dur,
+                                keys: [key], duration: dur,
                                 stem_direction: getStemDirection(pitchName, octave, clef)
                             });
-                            
                             if (fullPitch.toLowerCase().includes('#')) note.addModifier(new VF.Accidental('#'), 0);
                             if (fullPitch.toLowerCase().includes('b')) note.addModifier(new VF.Accidental('b'), 0);
-                            
                             vexNotes.push(note);
                         }
                     }
@@ -134,27 +125,44 @@
             container.innerHTML = ''; 
 
             const clefValue = document.getElementById('clef').value;
-            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(750, 150);
-            const context = renderer.getContext();
-
-            const stave = new VF.Stave(10, 20, 700);
-            stave.addClef(clefValue)
-                 .addKeySignature(document.getElementById('keySig').value)
-                 .addTimeSignature(document.getElementById('timeSig').value);
-            stave.setContext(context).draw();
-
+            const keySig = document.getElementById('keySig').value;
+            const timeSig = document.getElementById('timeSig').value;
             const notes = parseNotation(document.getElementById('notation').value, clefValue);
 
-            if (notes.length > 0) {
-                const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-                voice.addTickables(notes);
-                new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-                voice.draw(context, stave);
+            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            
+            // Lógica para quebrar linhas (Staves)
+            const notesPerLine = 8; // Ajuste este número para caber mais ou menos notas por linha
+            const numLines = Math.ceil(notes.length / notesPerLine) || 1;
+            
+            renderer.resize(750, numLines * 150 + 50);
+            const context = renderer.getContext();
+
+            for (let i = 0; i < numLines; i++) {
+                const lineNotes = notes.slice(i * notesPerLine, (i + 1) * notesPerLine);
+                const x = 10;
+                const y = 20 + (i * 150);
+                const staveWidth = 700;
+
+                const stave = new VF.Stave(x, y, staveWidth);
+                
+                // Adiciona Clave e Armadura no início de cada linha
+                stave.addClef(clefValue).addKeySignature(keySig);
+                
+                // Adiciona Time Signature apenas na primeira linha
+                if (i === 0) stave.addTimeSignature(timeSig);
+
+                stave.setContext(context).draw();
+
+                if (lineNotes.length > 0) {
+                    const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+                    voice.addTickables(lineNotes);
+                    new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                    voice.draw(context, stave);
+                }
             }
         }
 
-        // Event Listeners
         document.getElementById('renderBtn').addEventListener('click', render);
         document.getElementById('notation').addEventListener('input', render);
         document.getElementById('clef').addEventListener('change', render);
