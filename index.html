@@ -9,10 +9,12 @@
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; }
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
-        textarea#notation { width: 100%; grid-column: span 3; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
-        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
+        textarea#notation { width: 100%; grid-column: span 3; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; resize: vertical; }
+        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0056b3; }
+        .bar-btn { background: #6c757d; }
+        .bar-btn:hover { background: #5a6268; }
         #printBtn { background: #28a745; }
         #printBtn:hover { background: #218838; }
         #canvas-container { background-color: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; max-width: 100%; display: flex; justify-content: center; }
@@ -57,13 +59,13 @@
         <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q</textarea>
 
         <div class="command-reference">
-            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code></div>
-            <div><strong>Durations:</strong> <code>w, h, q, 8, 16</code></div>
-            <div><strong>Barlines:</strong> Use <code>|</code>, <code>bar.double</code> para fechar blocos.</div>
-            <div><strong>A4 Print:</strong> Agora as notas quebram em novas linhas automaticamente.</div>
+            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code></div>
+            <div><strong>Barlines:</strong> Use buttons to insert <code>|</code> or <code>Double Bar</code>.</div>
         </div>
 
         <div class="btn-group">
+            <button id="addSingleBar" class="bar-btn">Insert Barline ( | )</button>
+            <button id="addDoubleBar" class="bar-btn">Insert Double Bar</button>
             <button id="renderBtn">Update Sheet</button>
             <button id="printBtn">Print / Save as PDF</button>
         </div>
@@ -88,7 +90,8 @@
 
             sections.forEach(item => {
                 const cleanItem = item.trim();
-                
+                if (!cleanItem) return;
+
                 if (cleanItem === 'bar.double') {
                     if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.DOUBLE);
                 } else if (cleanItem === 'bar.ritornello') {
@@ -111,16 +114,13 @@
                                 stem_direction: getStemDirection(pitchName, octave, clef)
                             });
                             
-                            // Correção para Si Natural vs Si Bemol
                             if (fullPitch.includes('#')) {
                                 note.addModifier(new VF.Accidental('#'), 0);
                             } else if (fullPitch.toLowerCase().includes('b')) {
-                                // Só adiciona bemol se não for a letra B da nota, ou se for explicitamente Bb
                                 if (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb')) {
                                     note.addModifier(new VF.Accidental('b'), 0);
                                 }
                             }
-                            
                             vexNotes.push(note);
                         }
                     }
@@ -157,14 +157,28 @@
                 stave.setContext(context).draw();
 
                 if (lineNotes.length > 0) {
-                    const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-                    voice.addTickables(lineNotes);
-                    new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-                    voice.draw(context, stave);
+                    try {
+                        const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+                        voice.addTickables(lineNotes);
+                        new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                        voice.draw(context, stave);
+                    } catch (e) { console.error("Render error:", e); }
                 }
             }
         }
 
+        // Função para inserir texto no final da área de notas com formatação correta
+        function insertAtEnd(text) {
+            const area = document.getElementById('notation');
+            const currentVal = area.value.trim();
+            // Adiciona vírgula se já houver conteúdo
+            area.value = currentVal + (currentVal ? ", " : "") + text;
+            render();
+        }
+
+        document.getElementById('addSingleBar').addEventListener('click', () => insertAtEnd('|'));
+        document.getElementById('addDoubleBar').addEventListener('click', () => insertAtEnd('bar.double'));
+        
         document.getElementById('renderBtn').addEventListener('click', render);
         document.getElementById('notation').addEventListener('input', render);
         document.getElementById('clef').addEventListener('change', render);
