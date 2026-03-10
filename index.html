@@ -9,6 +9,10 @@
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; color: #333; }
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
+        
+        /* Novo estilo para o campo de título */
+        #musicTitleInput { width: 100%; grid-column: span 3; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+        
         textarea#notation { width: 100%; grid-column: span 3; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
         .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
         
@@ -21,14 +25,16 @@
         .canvas-section { width: 100%; max-width: 800px; margin-top: 20px; }
         .canvas-label { font-weight: bold; margin-bottom: 10px; color: #666; text-transform: uppercase; font-size: 0.8em; letter-spacing: 1px; }
         
-        /* Contêiner otimizado para centralização e margens */
         .sheet-container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; min-height: 150px; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; }
+
+        /* Estilo do Título na Partitura */
+        .render-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; }
 
         @media print {
             @page { margin: 1cm; }
             .controls, .canvas-label, h1, #preview-section { display: none !important; }
             body { background: white; padding: 0; margin: 0; }
-            .canvas-section { margin: 0; padding: 0; width: 100%; }
+            .canvas-section { margin: 0; padding: 0; width: 100%; max-width: 100%; }
             #final-section { box-shadow: none; border: none; width: 100%; }
             .sheet-container { box-shadow: none; padding: 0; width: 100%; overflow: visible; }
             svg { width: 100% !important; height: auto !important; }
@@ -40,6 +46,9 @@
     <h1>Sheet Music Generator</h1>
 
     <div class="controls">
+        <label for="musicTitleInput">Music Title:</label>
+        <input type="text" id="musicTitleInput" placeholder="Enter song title here..." value="My Composition">
+
         <div>
             <label for="clef">Clef:</label>
             <select id="clef">
@@ -78,13 +87,14 @@
 
     <div class="canvas-section" id="final-section">
         <div class="canvas-label">Final Sheet (A4 Ready)</div>
-        <div id="final-container" class="sheet-container"></div>
+        <div id="final-container" class="sheet-container">
+            </div>
     </div>
 
     <script>
         const VF = Vex.Flow;
         let extraStavesCount = 0;
-        const A4_WIDTH = 780; // Largura segura para PDF/Impressão sem cortes
+        const A4_WIDTH = 780; 
 
         function getStemDirection(pitch, octave, clef) {
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -150,53 +160,64 @@
         function renderFinal() {
             const container = document.getElementById('final-container');
             container.innerHTML = '';
+            
+            const titleVal = document.getElementById('musicTitleInput').value;
+            if(titleVal.trim() !== "") {
+                const titleElement = document.createElement('div');
+                titleElement.className = 'render-title';
+                titleElement.innerText = titleVal;
+                container.appendChild(titleElement);
+            }
+
             const clefValue = document.getElementById('clef').value;
             const keySig = document.getElementById('keySig').value;
             const timeSigStr = document.getElementById('timeSig').value;
+            
+            // Validação simples para evitar erro ao digitar o compasso
+            if (!timeSigStr.includes('/')) return;
             const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
+            if (!numBeats || !beatValue) return;
             
             const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-            if (allNotes.length === 0) return;
-
+            
+            // Permitir renderizar apenas pentagramas vazios se não houver notas
             const measures = [];
-            let currentMeasure = [];
-            let currentTicks = 0;
+            if (allNotes.length > 0) {
+                let currentMeasure = [];
+                let currentTicks = 0;
 
-            allNotes.forEach((note) => {
-                currentMeasure.push(note);
-                currentTicks += note.realValue;
-                if (currentTicks >= numBeats - 0.01) {
-                    measures.push(currentMeasure);
-                    currentMeasure = [];
-                    currentTicks = 0;
-                }
-            });
-            if (currentMeasure.length > 0) measures.push(currentMeasure);
+                allNotes.forEach((note) => {
+                    currentMeasure.push(note);
+                    currentTicks += note.realValue;
+                    if (currentTicks >= numBeats - 0.01) {
+                        measures.push(currentMeasure);
+                        currentMeasure = [];
+                        currentTicks = 0;
+                    }
+                });
+                if (currentMeasure.length > 0) measures.push(currentMeasure);
+            }
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
             const measuresPerLine = 4;
-            const contentLines = Math.ceil(measures.length / measuresPerLine);
+            const contentLines = Math.max(Math.ceil(measures.length / measuresPerLine), 0);
             const totalLines = contentLines + extraStavesCount;
+            const mWidth = Math.floor((A4_WIDTH - 40) / measuresPerLine); 
             
-            const mWidth = Math.floor((A4_WIDTH - 40) / measuresPerLine); // Largura de cada compasso
-            
-            renderer.resize(A4_WIDTH, totalLines * 160 + 50);
+            // Ajuste dinâmico da altura baseado no conteúdo
+            const calculatedHeight = Math.max(totalLines * 160 + 50, 200);
+            renderer.resize(A4_WIDTH, calculatedHeight);
             const context = renderer.getContext();
 
+            // Renderiza as notas existentes
             for (let i = 0; i < contentLines; i++) {
                 const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
                 const y = 20 + (i * 160);
 
                 lineMeasures.forEach((mNotes, mIdx) => {
                     const stave = new VF.Stave(20 + (mIdx * mWidth), y, mWidth);
-                    
-                    if (mIdx === 0) {
-                        stave.addClef(clefValue).addKeySignature(keySig);
-                    }
-                    if (i === 0 && mIdx === 0) {
-                        stave.addTimeSignature(timeSigStr);
-                    }
-                    
+                    if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
+                    if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
                     stave.setContext(context).draw();
                     
                     const voice = new VF.Voice({ num_beats: 0, beat_value: beatValue }).setStrict(false);
@@ -206,28 +227,48 @@
                 });
             }
 
-            // Pentagramas vazios
-            for (let i = contentLines; i < totalLines; i++) {
+            // Renderiza pentagramas vazios (extras ou se não houver notas)
+            const startEmptyAt = contentLines;
+            for (let i = startEmptyAt; i < totalLines; i++) {
                 const y = 20 + (i * 160);
                 const fullStave = new VF.Stave(20, y, A4_WIDTH - 40);
                 fullStave.addClef(clefValue).addKeySignature(keySig);
+                if (i === 0) fullStave.addTimeSignature(timeSigStr);
                 fullStave.setContext(context).draw();
             }
         }
 
-        document.getElementById('notation').addEventListener('input', renderPreview);
-        document.getElementById('clef').addEventListener('change', renderPreview);
-        document.getElementById('finalizeBtn').addEventListener('click', renderFinal);
+        // --- LISTENERS PARA ATUALIZAÇÃO AUTOMÁTICA ---
+        
+        const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput'];
+        
+        autoUpdateElements.forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                renderPreview();
+                renderFinal();
+            });
+        });
+
+        // O botão "Finalize" agora funciona como um "Reset" de pentagramas extras e refresh manual
+        document.getElementById('finalizeBtn').addEventListener('click', () => {
+            extraStavesCount = 0;
+            renderFinal();
+        });
+        
         document.getElementById('addStaveBtn').addEventListener('click', () => {
             extraStavesCount++;
             renderFinal();
         });
+
         document.getElementById('printBtn').addEventListener('click', () => {
-            if (document.getElementById('final-container').innerHTML === '') renderFinal();
             window.print();
         });
 
-        window.onload = renderPreview;
+        // Inicialização completa no carregamento
+        window.onload = () => {
+            renderPreview();
+            renderFinal();
+        };
     </script>
 </body>
 </html>
