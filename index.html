@@ -10,12 +10,12 @@
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 900px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
         textarea#notation { width: 100%; grid-column: span 3; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
-        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
         
         button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0056b3; }
         #finalizeBtn { background: #6f42c1; }
-        #finalizeBtn:hover { background: #59359a; }
+        #addStaveBtn { background: #17a2b8; }
         #printBtn { background: #28a745; }
         
         .canvas-section { width: 100%; max-width: 900px; margin-top: 20px; }
@@ -26,8 +26,9 @@
         @media print {
             .controls, .canvas-label, h1, #preview-section { display: none !important; }
             body { background: white; padding: 0; }
-            .canvas-section { margin: 0; padding: 0; }
+            .canvas-section { margin: 0; padding: 0; width: 100%; }
             #final-section { box-shadow: none; border: none; }
+            .sheet-container { box-shadow: none; padding: 0; }
         }
     </style>
 </head>
@@ -62,22 +63,24 @@
 
         <div class="btn-group">
             <button id="finalizeBtn">OK - Finalize Sheet</button>
+            <button id="addStaveBtn">Add Empty Pentagram</button>
             <button id="printBtn">Print Final Version</button>
         </div>
     </div>
 
     <div class="canvas-section" id="preview-section">
-        <div class="canvas-label">Draft Preview (No Barlines)</div>
+        <div class="canvas-label">Draft Preview</div>
         <div id="preview-container" class="sheet-container"></div>
     </div>
 
     <div class="canvas-section" id="final-section">
-        <div class="canvas-label">Final Sheet (Respects Measures)</div>
+        <div class="canvas-label">Final Sheet (A4 Ready)</div>
         <div id="final-container" class="sheet-container"></div>
     </div>
 
     <script>
         const VF = Vex.Flow;
+        let extraStavesCount = 0;
 
         function getStemDirection(pitch, octave, clef) {
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -123,7 +126,6 @@
             return vexNotes;
         }
 
-        // RENDER 1: DRAFT PREVIEW
         function renderPreview() {
             const container = document.getElementById('preview-container');
             container.innerHTML = '';
@@ -141,7 +143,6 @@
             voice.draw(context, stave);
         }
 
-        // RENDER 2: FINAL SHEET WITH AUTOMATIC BARLINES
         function renderFinal() {
             const container = document.getElementById('final-container');
             container.innerHTML = '';
@@ -151,9 +152,7 @@
             const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
             
             const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-            if (allNotes.length === 0) return;
-
-            // Logic to group notes into measures based on Time Signature
+            
             const measures = [];
             let currentMeasure = [];
             let currentTicks = 0;
@@ -171,11 +170,14 @@
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
             const measuresPerLine = 4;
-            const numLines = Math.ceil(measures.length / measuresPerLine);
-            renderer.resize(820, numLines * 160 + 20);
+            const contentLines = Math.ceil(measures.length / measuresPerLine);
+            const totalLines = contentLines + extraStavesCount;
+            
+            renderer.resize(820, totalLines * 160 + 20);
             const context = renderer.getContext();
 
-            for (let i = 0; i < numLines; i++) {
+            // Render existing music
+            for (let i = 0; i < contentLines; i++) {
                 const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
                 const y = 20 + (i * 160);
 
@@ -183,21 +185,36 @@
                     const stave = new VF.Stave(20 + (mIdx * 200), y, 200);
                     if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
                     if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
-                    
                     stave.setContext(context).draw();
+                    
                     const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
                     voice.addTickables(mNotes);
                     new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
                     voice.draw(context, stave);
                 });
             }
-            // Scroll to final result
-            container.scrollIntoView({ behavior: 'smooth' });
+
+            // Render extra empty staves
+            for (let i = contentLines; i < totalLines; i++) {
+                const y = 20 + (i * 160);
+                const fullStave = new VF.Stave(20, y, 800);
+                fullStave.addClef(clefValue).addKeySignature(keySig);
+                fullStave.setContext(context).draw();
+            }
         }
 
         document.getElementById('notation').addEventListener('input', renderPreview);
         document.getElementById('clef').addEventListener('change', renderPreview);
-        document.getElementById('finalizeBtn').addEventListener('click', renderFinal);
+        document.getElementById('finalizeBtn').addEventListener('click', () => {
+            extraStavesCount = 0; // Reset extra staves on new finalization
+            renderFinal();
+        });
+        
+        document.getElementById('addStaveBtn').addEventListener('click', () => {
+            extraStavesCount++;
+            renderFinal();
+        });
+
         document.getElementById('printBtn').addEventListener('click', () => {
             if (document.getElementById('final-container').innerHTML === '') renderFinal();
             window.print();
