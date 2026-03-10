@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <style>
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; color: #333; }
-        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 900px; width: 100%; }
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
         textarea#notation { width: 100%; grid-column: span 3; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
         .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
@@ -18,17 +18,20 @@
         #addStaveBtn { background: #17a2b8; }
         #printBtn { background: #28a745; }
         
-        .canvas-section { width: 100%; max-width: 900px; margin-top: 20px; }
+        .canvas-section { width: 100%; max-width: 800px; margin-top: 20px; }
         .canvas-label { font-weight: bold; margin-bottom: 10px; color: #666; text-transform: uppercase; font-size: 0.8em; letter-spacing: 1px; }
         
-        .sheet-container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; min-height: 150px; display: flex; flex-direction: column; align-items: center; }
+        /* Contêiner otimizado para centralização e margens */
+        .sheet-container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; min-height: 150px; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; }
 
         @media print {
+            @page { margin: 1cm; }
             .controls, .canvas-label, h1, #preview-section { display: none !important; }
-            body { background: white; padding: 0; }
+            body { background: white; padding: 0; margin: 0; }
             .canvas-section { margin: 0; padding: 0; width: 100%; }
-            #final-section { box-shadow: none; border: none; }
-            .sheet-container { box-shadow: none; padding: 0; width: 100%; }
+            #final-section { box-shadow: none; border: none; width: 100%; }
+            .sheet-container { box-shadow: none; padding: 0; width: 100%; overflow: visible; }
+            svg { width: 100% !important; height: auto !important; }
         }
     </style>
 </head>
@@ -81,6 +84,7 @@
     <script>
         const VF = Vex.Flow;
         let extraStavesCount = 0;
+        const A4_WIDTH = 780; // Largura segura para PDF/Impressão sem cortes
 
         function getStemDirection(pitch, octave, clef) {
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -133,9 +137,9 @@
             if (notes.length === 0) return;
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(800, 150);
+            renderer.resize(A4_WIDTH, 150);
             const context = renderer.getContext();
-            const stave = new VF.Stave(10, 10, 750).addClef(document.getElementById('clef').value).setContext(context).draw();
+            const stave = new VF.Stave(10, 10, A4_WIDTH - 20).addClef(document.getElementById('clef').value).setContext(context).draw();
             
             const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
             voice.addTickables(notes);
@@ -161,14 +165,12 @@
             allNotes.forEach((note) => {
                 currentMeasure.push(note);
                 currentTicks += note.realValue;
-                // Usamos uma pequena margem para evitar erros de ponto flutuante
                 if (currentTicks >= numBeats - 0.01) {
                     measures.push(currentMeasure);
                     currentMeasure = [];
                     currentTicks = 0;
                 }
             });
-            // Adiciona o último compasso mesmo se não estiver cheio
             if (currentMeasure.length > 0) measures.push(currentMeasure);
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
@@ -176,7 +178,9 @@
             const contentLines = Math.ceil(measures.length / measuresPerLine);
             const totalLines = contentLines + extraStavesCount;
             
-            renderer.resize(850, totalLines * 160 + 50);
+            const mWidth = Math.floor((A4_WIDTH - 40) / measuresPerLine); // Largura de cada compasso
+            
+            renderer.resize(A4_WIDTH, totalLines * 160 + 50);
             const context = renderer.getContext();
 
             for (let i = 0; i < contentLines; i++) {
@@ -184,13 +188,11 @@
                 const y = 20 + (i * 160);
 
                 lineMeasures.forEach((mNotes, mIdx) => {
-                    const stave = new VF.Stave(20 + (mIdx * 200), y, 200);
+                    const stave = new VF.Stave(20 + (mIdx * mWidth), y, mWidth);
                     
-                    // Adiciona a clave e armadura no início de CADA linha
                     if (mIdx === 0) {
                         stave.addClef(clefValue).addKeySignature(keySig);
                     }
-                    // Adiciona a fórmula de compasso apenas no primeiríssimo compasso da música
                     if (i === 0 && mIdx === 0) {
                         stave.addTimeSignature(timeSigStr);
                     }
@@ -204,9 +206,10 @@
                 });
             }
 
+            // Pentagramas vazios
             for (let i = contentLines; i < totalLines; i++) {
                 const y = 20 + (i * 160);
-                const fullStave = new VF.Stave(20, y, 800);
+                const fullStave = new VF.Stave(20, y, A4_WIDTH - 40);
                 fullStave.addClef(clefValue).addKeySignature(keySig);
                 fullStave.setContext(context).draw();
             }
