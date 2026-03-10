@@ -77,6 +77,8 @@
             <button id="finalizeBtn">OK - Finalize Sheet</button>
             <button id="addStaveBtn">Add Empty Pentagram</button>
             <button id="printBtn">Print Final Version</button>
+            <button id="playBtn" style="background: #ffc107; color: #333;">Play Audio</button>
+<button id="downloadAudioBtn" style="background: #6c757d;">Download Audio (WAV)</button>
         </div>
     </div>
 
@@ -269,6 +271,147 @@
             renderPreview();
             renderFinal();
         };
+
+
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function getFrequency(noteStr) {
+        const notes = { 'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11 };
+        const match = noteStr.match(/([A-G][#b]?)(\d)/i);
+        if (!match) return 440;
+        const name = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+        const octave = parseInt(match[2]);
+        const semitones = notes[name] + (octave - 4) * 12;
+        return 440 * Math.pow(2, (semitones - 9) / 12);
+    }
+
+    async function generateAudio(isDownload = false) {
+        const notationText = document.getElementById('notation').value;
+        const sections = notationText.split(',').filter(s => s.trim() !== "");
+        const playbackNotes = [];
+
+        // Parse simples para áudio
+        sections.forEach(item => {
+            const match = item.trim().match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
+            if (match) {
+                const count = parseInt(match[1]);
+                const pitch = match[2];
+                const durChar = match[3];
+                const durationSeconds = getDurationValue(durChar) * 0.5; // Ajuste de tempo (0.5s por semínima)
+                for (let i = 0; i < count; i++) {
+                    playbackNotes.push({ freq: getFrequency(pitch), duration: durationSeconds });
+                }
+            }
+        });
+
+        if (isDownload) {
+            return exportWAV(playbackNotes);
+        } else {
+            playNotes(playbackNotes);
+        }
+    }
+
+    function playNotes(notes) {
+        let currentTime = audioCtx.currentTime;
+        notes.forEach(note => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'triangle'; // Som mais suave que 'sine' para partitura
+            osc.frequency.setValueAtTime(note.freq, currentTime);
+            
+            gain.gain.setValueAtTime(0.2, currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, currentTime + note.duration - 0.05);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(currentTime);
+            osc.stop(currentTime + note.duration);
+            currentTime += note.duration;
+        });
+    }
+
+    // Função para exportar WAV (simplificada)
+    function exportWAV(notes) {
+        const sampleRate = 44100;
+        const totalDuration = notes.reduce((acc, n) => acc + n.duration, 0);
+        const frameCount = sampleRate * totalDuration;
+        const buffer = audioCtx.createBuffer(1, frameCount, sampleRate);
+        const data = buffer.getChannelData(0);
+
+        let offset = 0;
+        notes.forEach(note => {
+            const noteFrames = note.duration * sampleRate;
+            for (let i = 0; i < noteFrames; i++) {
+                // Síntese básica de onda senoidal com fade out
+                const sample = Math.sin(2 * Math.PI * note.freq * (i / sampleRate));
+                const fade = Math.max(0, 1 - i / noteFrames);
+                data[offset + i] = sample * 0.5 * fade;
+            }
+            offset += noteFrames;
+        });
+
+        // Criar Blob WAV
+        const wavBuffer = audioBufferToWav(buffer);
+        const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = (document.getElementById('musicTitleInput').value || 'composition') + '.wav';
+        anchor.click();
+    }
+
+    // Helper para formatar o cabeçalho WAV
+    function audioBufferToWav(buffer) {
+        let numOfChan = buffer.numberOfChannels,
+            length = buffer.length * numOfChan * 2 + 44,
+            bufferWav = new ArrayBuffer(length),
+            view = new DataView(bufferWav),
+            channels = [], i, sample,
+            offset = 0,
+            pos = 0;
+
+        function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+        function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+        setUint32(0x46464952); // "RIFF"
+        setUint32(length - 8);
+        setUint32(0x45564157); // "WAVE"
+        setUint32(0x20746d66); // "fmt "
+        setUint32(16);
+        setUint16(1);
+        setUint16(numOfChan);
+        setUint32(buffer.sampleRate);
+        setUint32(buffer.sampleRate * 2 * numOfChan);
+        setUint16(numOfChan * 2);
+        setUint16(16);
+        setUint32(0x61746164); // "data"
+        setUint32(length - pos - 4);
+
+        for(i=0; i<buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
+        while(pos < length) {
+            for(i=0; i<numOfChan; i++) {
+                sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                sample = (sample < 0 ? sample * 0x8000 : sample * 0x7FFF);
+                view.setInt16(pos, sample, true);
+                pos += 2;
+            }
+            offset++;
+        }
+        return bufferWav;
+    }
+
+    // Novos Listeners
+    document.getElementById('playBtn').addEventListener('click', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        generateAudio(false);
+    });
+
+    document.getElementById('downloadAudioBtn').addEventListener('click', () => {
+        generateAudio(true);
+    });
     </script>
 </body>
 </html>
