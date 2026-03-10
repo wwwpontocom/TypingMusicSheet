@@ -9,12 +9,12 @@
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; }
         .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
-        textarea#notation { width: 100%; grid-column: span 3; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; resize: vertical; }
+        textarea#notation { width: 100%; grid-column: span 3; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
         .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
-        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0056b3; }
-        .bar-btn { background: #6c757d; }
-        .bar-btn:hover { background: #5a6268; }
+        #addBarBtn { background: #6c757d; }
+        #addBarBtn:hover { background: #5a6268; }
         #printBtn { background: #28a745; }
         #printBtn:hover { background: #218838; }
         #canvas-container { background-color: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; max-width: 100%; display: flex; justify-content: center; }
@@ -59,14 +59,15 @@
         <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q</textarea>
 
         <div class="command-reference">
-            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code></div>
-            <div><strong>Barlines:</strong> Use buttons to insert <code>|</code> or <code>Double Bar</code>.</div>
+            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code></div>
+            <div><strong>Durations:</strong> <code>w, h, q, 8, 16</code></div>
+            <div><strong>Barlines:</strong> Use the "Add Barline" button to divide measures.</div>
+            <div><strong>A4 Print:</strong> Staves break automatically for printing.</div>
         </div>
 
         <div class="btn-group">
-            <button id="addSingleBar" class="bar-btn">Insert Barline ( | )</button>
-            <button id="addDoubleBar" class="bar-btn">Insert Double Bar</button>
             <button id="renderBtn">Update Sheet</button>
+            <button id="addBarBtn">Add Barline (|)</button>
             <button id="printBtn">Print / Save as PDF</button>
         </div>
     </div>
@@ -75,6 +76,8 @@
 
     <script>
         const VF = Vex.Flow;
+        // Array para armazenar as posições das barlines injetadas pelo botão
+        let manualBarlineIndexes = [];
 
         function getStemDirection(pitch, octave, clef) {
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -84,45 +87,45 @@
         }
 
         function parseNotation(text, clef) {
-            const sections = text.split(',');
+            const sections = text.split(',').filter(s => s.trim() !== "");
             const vexNotes = [];
             const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
 
-            sections.forEach(item => {
+            sections.forEach((item, index) => {
                 const cleanItem = item.trim();
-                if (!cleanItem) return;
+                const match = cleanItem.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
+                
+                if (match) {
+                    const count = parseInt(match[1]);
+                    const fullPitch = match[2];
+                    const pitchName = fullPitch.match(/[A-Ga-g#b]+/)[0];
+                    const octave = parseInt(fullPitch.match(/\d+/)[0]);
+                    const dur = durationMap[match[3]] || 'q';
+                    const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
 
-                if (cleanItem === 'bar.double') {
-                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.DOUBLE);
-                } else if (cleanItem === 'bar.ritornello') {
-                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.REPEAT_END);
-                } else if (cleanItem === 'bar.single' || cleanItem === '|') {
-                    if (vexNotes.length > 0) vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.SINGLE);
-                } else {
-                    const match = cleanItem.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
-                    if (match) {
-                        const count = parseInt(match[1]);
-                        const fullPitch = match[2];
-                        const pitchName = fullPitch.match(/[A-Ga-g#b]+/)[0];
-                        const octave = parseInt(fullPitch.match(/\d+/)[0]);
-                        const dur = durationMap[match[3]] || 'q';
-                        const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
-
-                        for (let i = 0; i < count; i++) {
-                            const note = new VF.StaveNote({ 
-                                keys: [key], duration: dur,
-                                stem_direction: getStemDirection(pitchName, octave, clef)
-                            });
-                            
-                            if (fullPitch.includes('#')) {
-                                note.addModifier(new VF.Accidental('#'), 0);
-                            } else if (fullPitch.toLowerCase().includes('b')) {
-                                if (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb')) {
-                                    note.addModifier(new VF.Accidental('b'), 0);
-                                }
+                    for (let i = 0; i < count; i++) {
+                        const note = new VF.StaveNote({ 
+                            keys: [key], duration: dur,
+                            stem_direction: getStemDirection(pitchName, octave, clef)
+                        });
+                        
+                        if (fullPitch.includes('#')) {
+                            note.addModifier(new VF.Accidental('#'), 0);
+                        } else if (fullPitch.toLowerCase().includes('b')) {
+                            if (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb')) {
+                                note.addModifier(new VF.Accidental('b'), 0);
                             }
-                            vexNotes.push(note);
                         }
+                        
+                        // Se este índice de nota foi marcado para ter uma barline
+                        if (manualBarlineIndexes.includes(vexNotes.length)) {
+                           // Marcamos a nota anterior para encerrar com barline
+                           if (vexNotes.length > 0) {
+                               vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.SINGLE);
+                           }
+                        }
+
+                        vexNotes.push(note);
                     }
                 }
             });
@@ -139,48 +142,52 @@
             const notes = parseNotation(document.getElementById('notation').value, clefValue);
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            
+            // Agrupamento para quebra de linha visual
             const notesPerLine = 8; 
             const numLines = Math.ceil(notes.length / notesPerLine) || 1;
             
-            renderer.resize(750, numLines * 150 + 50);
+            renderer.resize(800, numLines * 160 + 50);
             const context = renderer.getContext();
 
             for (let i = 0; i < numLines; i++) {
                 const lineNotes = notes.slice(i * notesPerLine, (i + 1) * notesPerLine);
-                const x = 10;
-                const y = 20 + (i * 150);
-                const staveWidth = 700;
+                const x = 20;
+                const y = 40 + (i * 160);
+                const staveWidth = 750;
 
                 const stave = new VF.Stave(x, y, staveWidth);
                 stave.addClef(clefValue).addKeySignature(keySig);
                 if (i === 0) stave.addTimeSignature(timeSig);
+                
                 stave.setContext(context).draw();
 
                 if (lineNotes.length > 0) {
-                    try {
-                        const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-                        voice.addTickables(lineNotes);
-                        new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-                        voice.draw(context, stave);
-                    } catch (e) { console.error("Render error:", e); }
+                    const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+                    voice.addTickables(lineNotes);
+                    new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                    voice.draw(context, stave);
                 }
             }
         }
 
-        // Função para inserir texto no final da área de notas com formatação correta
-        function insertAtEnd(text) {
-            const area = document.getElementById('notation');
-            const currentVal = area.value.trim();
-            // Adiciona vírgula se já houver conteúdo
-            area.value = currentVal + (currentVal ? ", " : "") + text;
-            render();
-        }
+        // Nova função para o botão de Barline
+        document.getElementById('addBarBtn').addEventListener('click', () => {
+            const notes = parseNotation(document.getElementById('notation').value, document.getElementById('clef').value);
+            // Adiciona o índice da última nota atual para receber uma barra
+            if (notes.length > 0) {
+                manualBarlineIndexes.push(notes.length);
+                render();
+            }
+        });
 
-        document.getElementById('addSingleBar').addEventListener('click', () => insertAtEnd('|'));
-        document.getElementById('addDoubleBar').addEventListener('click', () => insertAtEnd('bar.double'));
-        
         document.getElementById('renderBtn').addEventListener('click', render);
-        document.getElementById('notation').addEventListener('input', render);
+        document.getElementById('notation').addEventListener('input', () => {
+            // Se o texto mudar radicalmente, limpamos as barlines manuais para evitar desalinhamento
+            // manualBarlineIndexes = []; 
+            render();
+        });
+        
         document.getElementById('clef').addEventListener('change', render);
         document.getElementById('keySig').addEventListener('change', render);
         document.getElementById('timeSig').addEventListener('input', render);
