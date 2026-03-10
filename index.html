@@ -28,7 +28,7 @@
             body { background: white; padding: 0; }
             .canvas-section { margin: 0; padding: 0; width: 100%; }
             #final-section { box-shadow: none; border: none; }
-            .sheet-container { box-shadow: none; padding: 0; }
+            .sheet-container { box-shadow: none; padding: 0; width: 100%; }
         }
     </style>
 </head>
@@ -152,20 +152,23 @@
             const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
             
             const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-            
+            if (allNotes.length === 0) return;
+
             const measures = [];
             let currentMeasure = [];
             let currentTicks = 0;
 
-            allNotes.forEach(note => {
+            allNotes.forEach((note) => {
                 currentMeasure.push(note);
                 currentTicks += note.realValue;
-                if (currentTicks >= numBeats) {
+                // Usamos uma pequena margem para evitar erros de ponto flutuante
+                if (currentTicks >= numBeats - 0.01) {
                     measures.push(currentMeasure);
                     currentMeasure = [];
                     currentTicks = 0;
                 }
             });
+            // Adiciona o último compasso mesmo se não estiver cheio
             if (currentMeasure.length > 0) measures.push(currentMeasure);
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
@@ -173,28 +176,34 @@
             const contentLines = Math.ceil(measures.length / measuresPerLine);
             const totalLines = contentLines + extraStavesCount;
             
-            renderer.resize(820, totalLines * 160 + 20);
+            renderer.resize(850, totalLines * 160 + 50);
             const context = renderer.getContext();
 
-            // Render existing music
             for (let i = 0; i < contentLines; i++) {
                 const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
                 const y = 20 + (i * 160);
 
                 lineMeasures.forEach((mNotes, mIdx) => {
                     const stave = new VF.Stave(20 + (mIdx * 200), y, 200);
-                    if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
-                    if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
+                    
+                    // Adiciona a clave e armadura no início de CADA linha
+                    if (mIdx === 0) {
+                        stave.addClef(clefValue).addKeySignature(keySig);
+                    }
+                    // Adiciona a fórmula de compasso apenas no primeiríssimo compasso da música
+                    if (i === 0 && mIdx === 0) {
+                        stave.addTimeSignature(timeSigStr);
+                    }
+                    
                     stave.setContext(context).draw();
                     
-                    const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
+                    const voice = new VF.Voice({ num_beats: 0, beat_value: beatValue }).setStrict(false);
                     voice.addTickables(mNotes);
                     new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
                     voice.draw(context, stave);
                 });
             }
 
-            // Render extra empty staves
             for (let i = contentLines; i < totalLines; i++) {
                 const y = 20 + (i * 160);
                 const fullStave = new VF.Stave(20, y, 800);
@@ -205,16 +214,11 @@
 
         document.getElementById('notation').addEventListener('input', renderPreview);
         document.getElementById('clef').addEventListener('change', renderPreview);
-        document.getElementById('finalizeBtn').addEventListener('click', () => {
-            extraStavesCount = 0; // Reset extra staves on new finalization
-            renderFinal();
-        });
-        
+        document.getElementById('finalizeBtn').addEventListener('click', renderFinal);
         document.getElementById('addStaveBtn').addEventListener('click', () => {
             extraStavesCount++;
             renderFinal();
         });
-
         document.getElementById('printBtn').addEventListener('click', () => {
             if (document.getElementById('final-container').innerHTML === '') renderFinal();
             window.print();
