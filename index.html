@@ -3,29 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sheet Music Generator</title>
+    <title>Sheet Music Generator Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; }
-        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; color: #333; }
+        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 900px; width: 100%; }
         .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
-        textarea#notation { width: 100%; grid-column: span 3; height: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
-        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+        textarea#notation { width: 100%; grid-column: span 3; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
+        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        
         button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
         button:hover { background: #0056b3; }
-        #addBarBtn { background: #6c757d; }
-        #addBarBtn:hover { background: #5a6268; }
+        #finalizeBtn { background: #6f42c1; }
+        #finalizeBtn:hover { background: #59359a; }
         #printBtn { background: #28a745; }
-        #printBtn:hover { background: #218838; }
-        #canvas-container { background-color: white; margin-top: 20px; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; max-width: 100%; display: flex; justify-content: center; }
         
-        .command-reference { grid-column: span 3; background: #eef2f7; padding: 10px; border-radius: 4px; font-size: 0.85em; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .command-reference code { background: #fff; padding: 2px 4px; border-radius: 3px; border: 1px solid #ddd; }
+        .canvas-section { width: 100%; max-width: 900px; margin-top: 20px; }
+        .canvas-label { font-weight: bold; margin-bottom: 10px; color: #666; text-transform: uppercase; font-size: 0.8em; letter-spacing: 1px; }
+        
+        .sheet-container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow-x: auto; min-height: 150px; display: flex; flex-direction: column; align-items: center; }
 
         @media print {
-            .controls, #help-text, h1, .command-reference { display: none; }
+            .controls, .canvas-label, h1, #preview-section { display: none !important; }
             body { background: white; padding: 0; }
-            #canvas-container { box-shadow: none; border: none; margin: 0; padding: 0; width: 100%; }
+            .canvas-section { margin: 0; padding: 0; }
+            #final-section { box-shadow: none; border: none; }
         }
     </style>
 </head>
@@ -55,29 +57,27 @@
             <input type="text" id="timeSig" value="4/4">
         </div>
 
-        <label for="notation">Notation Data:</label>
+        <label for="notation">Notation Data (Edit Mode):</label>
         <textarea id="notation">1 C4 q, 1 D4 q, 1 E4 q, 1 F4 q, 1 G4 q, 1 A4 q, 1 B4 q, 1 C5 q</textarea>
 
-        <div class="command-reference">
-            <div><strong>Notes:</strong> <code>[Count] [Note][Octave] [Duration]</code><br>Ex: <code>1 C4 q</code></div>
-            <div><strong>Durations:</strong> <code>w, h, q, 8, 16</code></div>
-            <div><strong>Barlines:</strong> Use the "Add Barline" button to divide measures.</div>
-            <div><strong>A4 Print:</strong> Staves break automatically for printing.</div>
-        </div>
-
         <div class="btn-group">
-            <button id="renderBtn">Update Sheet</button>
-            <button id="addBarBtn">Add Barline (|)</button>
-            <button id="printBtn">Print / Save as PDF</button>
+            <button id="finalizeBtn">OK - Finalize Sheet</button>
+            <button id="printBtn">Print Final Version</button>
         </div>
     </div>
 
-    <div id="canvas-container"></div>
+    <div class="canvas-section" id="preview-section">
+        <div class="canvas-label">Draft Preview (No Barlines)</div>
+        <div id="preview-container" class="sheet-container"></div>
+    </div>
+
+    <div class="canvas-section" id="final-section">
+        <div class="canvas-label">Final Sheet (Respects Measures)</div>
+        <div id="final-container" class="sheet-container"></div>
+    </div>
 
     <script>
         const VF = Vex.Flow;
-        // Array para armazenar as posições das barlines injetadas pelo botão
-        let manualBarlineIndexes = [];
 
         function getStemDirection(pitch, octave, clef) {
             const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
@@ -86,15 +86,18 @@
             return (clef === 'treble' ? val >= 34 : val >= 22) ? VF.Stem.DOWN : VF.Stem.UP;
         }
 
+        function getDurationValue(dur) {
+            const values = { 'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25 };
+            return values[dur] || 1;
+        }
+
         function parseNotation(text, clef) {
             const sections = text.split(',').filter(s => s.trim() !== "");
             const vexNotes = [];
             const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
 
-            sections.forEach((item, index) => {
-                const cleanItem = item.trim();
-                const match = cleanItem.match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
-                
+            sections.forEach(item => {
+                const match = item.trim().match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
                 if (match) {
                     const count = parseInt(match[1]);
                     const fullPitch = match[2];
@@ -108,23 +111,11 @@
                             keys: [key], duration: dur,
                             stem_direction: getStemDirection(pitchName, octave, clef)
                         });
-                        
-                        if (fullPitch.includes('#')) {
-                            note.addModifier(new VF.Accidental('#'), 0);
-                        } else if (fullPitch.toLowerCase().includes('b')) {
-                            if (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb')) {
-                                note.addModifier(new VF.Accidental('b'), 0);
-                            }
+                        if (fullPitch.includes('#')) note.addModifier(new VF.Accidental('#'), 0);
+                        if (fullPitch.toLowerCase().includes('b') && (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb'))) {
+                            note.addModifier(new VF.Accidental('b'), 0);
                         }
-                        
-                        // Se este índice de nota foi marcado para ter uma barline
-                        if (manualBarlineIndexes.includes(vexNotes.length)) {
-                           // Marcamos a nota anterior para encerrar com barline
-                           if (vexNotes.length > 0) {
-                               vexNotes[vexNotes.length - 1].setEndBarline(VF.Barline.type.SINGLE);
-                           }
-                        }
-
+                        note.realValue = getDurationValue(dur);
                         vexNotes.push(note);
                     }
                 }
@@ -132,68 +123,87 @@
             return vexNotes;
         }
 
-        function render() {
-            const container = document.getElementById('canvas-container');
-            container.innerHTML = ''; 
-
-            const clefValue = document.getElementById('clef').value;
-            const keySig = document.getElementById('keySig').value;
-            const timeSig = document.getElementById('timeSig').value;
-            const notes = parseNotation(document.getElementById('notation').value, clefValue);
+        // RENDER 1: DRAFT PREVIEW
+        function renderPreview() {
+            const container = document.getElementById('preview-container');
+            container.innerHTML = '';
+            const notes = parseNotation(document.getElementById('notation').value, document.getElementById('clef').value);
+            if (notes.length === 0) return;
 
             const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            renderer.resize(800, 150);
+            const context = renderer.getContext();
+            const stave = new VF.Stave(10, 10, 750).addClef(document.getElementById('clef').value).setContext(context).draw();
             
-            // Agrupamento para quebra de linha visual
-            const notesPerLine = 8; 
-            const numLines = Math.ceil(notes.length / notesPerLine) || 1;
+            const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+            voice.addTickables(notes);
+            new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+            voice.draw(context, stave);
+        }
+
+        // RENDER 2: FINAL SHEET WITH AUTOMATIC BARLINES
+        function renderFinal() {
+            const container = document.getElementById('final-container');
+            container.innerHTML = '';
+            const clefValue = document.getElementById('clef').value;
+            const keySig = document.getElementById('keySig').value;
+            const timeSigStr = document.getElementById('timeSig').value;
+            const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
             
-            renderer.resize(800, numLines * 160 + 50);
+            const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
+            if (allNotes.length === 0) return;
+
+            // Logic to group notes into measures based on Time Signature
+            const measures = [];
+            let currentMeasure = [];
+            let currentTicks = 0;
+
+            allNotes.forEach(note => {
+                currentMeasure.push(note);
+                currentTicks += note.realValue;
+                if (currentTicks >= numBeats) {
+                    measures.push(currentMeasure);
+                    currentMeasure = [];
+                    currentTicks = 0;
+                }
+            });
+            if (currentMeasure.length > 0) measures.push(currentMeasure);
+
+            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+            const measuresPerLine = 4;
+            const numLines = Math.ceil(measures.length / measuresPerLine);
+            renderer.resize(820, numLines * 160 + 20);
             const context = renderer.getContext();
 
             for (let i = 0; i < numLines; i++) {
-                const lineNotes = notes.slice(i * notesPerLine, (i + 1) * notesPerLine);
-                const x = 20;
-                const y = 40 + (i * 160);
-                const staveWidth = 750;
+                const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
+                const y = 20 + (i * 160);
 
-                const stave = new VF.Stave(x, y, staveWidth);
-                stave.addClef(clefValue).addKeySignature(keySig);
-                if (i === 0) stave.addTimeSignature(timeSig);
-                
-                stave.setContext(context).draw();
-
-                if (lineNotes.length > 0) {
-                    const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-                    voice.addTickables(lineNotes);
+                lineMeasures.forEach((mNotes, mIdx) => {
+                    const stave = new VF.Stave(20 + (mIdx * 200), y, 200);
+                    if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
+                    if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
+                    
+                    stave.setContext(context).draw();
+                    const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
+                    voice.addTickables(mNotes);
                     new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
                     voice.draw(context, stave);
-                }
+                });
             }
+            // Scroll to final result
+            container.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // Nova função para o botão de Barline
-        document.getElementById('addBarBtn').addEventListener('click', () => {
-            const notes = parseNotation(document.getElementById('notation').value, document.getElementById('clef').value);
-            // Adiciona o índice da última nota atual para receber uma barra
-            if (notes.length > 0) {
-                manualBarlineIndexes.push(notes.length);
-                render();
-            }
+        document.getElementById('notation').addEventListener('input', renderPreview);
+        document.getElementById('clef').addEventListener('change', renderPreview);
+        document.getElementById('finalizeBtn').addEventListener('click', renderFinal);
+        document.getElementById('printBtn').addEventListener('click', () => {
+            if (document.getElementById('final-container').innerHTML === '') renderFinal();
+            window.print();
         });
 
-        document.getElementById('renderBtn').addEventListener('click', render);
-        document.getElementById('notation').addEventListener('input', () => {
-            // Se o texto mudar radicalmente, limpamos as barlines manuais para evitar desalinhamento
-            // manualBarlineIndexes = []; 
-            render();
-        });
-        
-        document.getElementById('clef').addEventListener('change', render);
-        document.getElementById('keySig').addEventListener('change', render);
-        document.getElementById('timeSig').addEventListener('input', render);
-        document.getElementById('printBtn').addEventListener('click', () => window.print());
-
-        window.onload = render;
+        window.onload = renderPreview;
     </script>
 </body>
 </html>
