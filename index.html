@@ -218,12 +218,20 @@
         renderer.resize(A4_WIDTH, calculatedHeight);
         const context = renderer.getContext();
 
-        for (let i = 0; i < contentLines; i++) {
+       for (let i = 0; i < contentLines; i++) {
             const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
             const y = 20 + (i * 160);
 
+            // Calculate total "weight" for the line to distribute width proportionally
+            const lineWeight = lineMeasures.reduce((acc, m) => acc + Math.max(m.length, 8), 0);
+            let currentX = 20;
+
             lineMeasures.forEach((mNotes, mIdx) => {
-                const stave = new VF.Stave(20 + (mIdx * mWidth), y, mWidth);
+                // Calculate dynamic width: high density measures get more pixels
+                const measureWeight = Math.max(mNotes.length, 8);
+                const dynamicWidth = Math.floor((measureWeight / lineWeight) * (A4_WIDTH - 40));
+                
+                const stave = new VF.Stave(currentX, y, dynamicWidth);
                 if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
                 if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
                 stave.setContext(context).draw();
@@ -231,22 +239,11 @@
                 const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
                 voice.addTickables(mNotes);
                 
-                // DETECT 16th NOTES: Check if any note in the current measure is a '16'
-                const hasSixteenths = mNotes.some(n => n.duration === '16');
-                
-                // Calculate available width for notes (subtracting clef/time sig space)
-                const startX = stave.getNoteStartX() - stave.getX();
-                const availableNoteWidth = mWidth - startX - 15; // 15px buffer for the end barline
-
+                // Format with a specific width constraint to prevent overflow
                 const formatter = new VF.Formatter().joinVoices([voice]);
                 
-                if (hasSixteenths) {
-                    // Force compress the 16th notes into the available space
-                    formatter.formatToStave([voice], stave, { align_rests: true });
-                } else {
-                    // Standard formatting for less dense measures
-                    formatter.formatToStave([voice], stave);
-                }
+                // Determine justification: dense measures need more space
+                formatter.formatToStave([voice], stave);
                 
                 voice.draw(context, stave);
                 
@@ -254,6 +251,8 @@
                     const beams = VF.Beam.generateBeams(mNotes);
                     beams.forEach(b => b.setContext(context).draw());
                 }
+                
+                currentX += dynamicWidth; // Move X for the next measure on the same line
             });
         }
 
