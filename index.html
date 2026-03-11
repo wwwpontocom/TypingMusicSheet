@@ -156,7 +156,12 @@
             const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
             voice.addTickables(notes);
             new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+          const beams = VF.Beam.generateBeams(notes);
+            
             voice.draw(context, stave);
+            
+            // Draw the beams:
+            beams.forEach(b => b.setContext(context).draw());
         }
 
         function renderFinal() {
@@ -225,7 +230,12 @@
                     const voice = new VF.Voice({ num_beats: 0, beat_value: beatValue }).setStrict(false);
                     voice.addTickables(mNotes);
                     new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                   const beams = VF.Beam.generateBeams(mNotes);
+                    
                     voice.draw(context, stave);
+                    
+                    // Draw the beams for this measure:
+                    beams.forEach(b => b.setContext(context).draw());
                 });
             }
 
