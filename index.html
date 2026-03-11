@@ -223,7 +223,9 @@
             const y = 20 + (i * 160);
 
             lineMeasures.forEach((mNotes, mIdx) => {
-                const stave = new VF.Stave(20 + (mIdx * mWidth), y, mWidth);
+                // Adjusting width to ensure a small padding at the end of the measure
+                const staveWidth = mWidth - 10; 
+                const stave = new VF.Stave(20 + (mIdx * mWidth), y, staveWidth);
                 if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
                 if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
                 stave.setContext(context).draw();
@@ -232,8 +234,14 @@
                 const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
                 voice.addTickables(mNotes);
                 
-                // Format the notes to fit specifically inside this stave's width
-                new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+               // CRITICAL FIX: formatToStave requires the specific stave to calculate 
+                // the bounding box correctly for high-density 16th notes.
+                const formatter = new VF.Formatter().joinVoices([voice]);
+                
+                // We calculate a width that leaves room for the clef/key on the first measure
+                let availableWidth = staveWidth - stave.getNoteStartX() + stave.getX();
+                formatter.formatToStave([voice], stave, { align_rests: true });
+                
                 voice.draw(context, stave);
                 
                 if (document.getElementById('enableBeams').checked) {
