@@ -80,6 +80,10 @@
             <button id="playBtn" style="background: #ffc107; color: #333;">Play Audio</button>
 <button id="downloadAudioBtn" style="background: #6c757d;">Download Audio (WAV)</button>
         </div>
+        <div>
+            <label for="enableBeams">Beams:</label>
+            <input type="checkbox" id="enableBeams" checked>
+        </div>
     </div>
 
     <div class="canvas-section" id="preview-section">
@@ -143,91 +147,101 @@
         }
 
         function renderPreview() {
-            const container = document.getElementById('preview-container');
-            container.innerHTML = '';
-            const notes = parseNotation(document.getElementById('notation').value, document.getElementById('clef').value);
-            if (notes.length === 0) return;
+        const container = document.getElementById('preview-container');
+        container.innerHTML = '';
+        const notes = parseNotation(document.getElementById('notation').value, document.getElementById('clef').value);
+        if (notes.length === 0) return;
 
-            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            renderer.resize(A4_WIDTH, 150);
-            const context = renderer.getContext();
-            const stave = new VF.Stave(10, 10, A4_WIDTH - 20).addClef(document.getElementById('clef').value).setContext(context).draw();
-            
-            const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-            voice.addTickables(notes);
-            new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-            voice.draw(context, stave);
+        const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+        renderer.resize(A4_WIDTH, 150);
+        const context = renderer.getContext();
+        const stave = new VF.Stave(10, 10, A4_WIDTH - 20).addClef(document.getElementById('clef').value).setContext(context).draw();
+        
+        const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
+        voice.addTickables(notes);
+        new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        
+        voice.draw(context, stave);
+        
+        // Apply beams only if checked
+        if (document.getElementById('enableBeams').checked) {
+            const beams = VF.Beam.generateBeams(notes);
+            beams.forEach(b => b.setContext(context).draw());
+        }
+    }
+
+    function renderFinal() {
+        const container = document.getElementById('final-container');
+        container.innerHTML = '';
+        
+        const titleVal = document.getElementById('musicTitleInput').value;
+        if(titleVal.trim() !== "") {
+            const titleElement = document.createElement('div');
+            titleElement.className = 'render-title';
+            titleElement.innerText = titleVal;
+            container.appendChild(titleElement);
         }
 
-        function renderFinal() {
-            const container = document.getElementById('final-container');
-            container.innerHTML = '';
-            
-            const titleVal = document.getElementById('musicTitleInput').value;
-            if(titleVal.trim() !== "") {
-                const titleElement = document.createElement('div');
-                titleElement.className = 'render-title';
-                titleElement.innerText = titleVal;
-                container.appendChild(titleElement);
-            }
+        const clefValue = document.getElementById('clef').value;
+        const keySig = document.getElementById('keySig').value;
+        const timeSigStr = document.getElementById('timeSig').value;
+        
+        if (!timeSigStr.includes('/')) return;
+        const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
+        
+        // IMPORTANT: Re-parse here so the final canvas has its own unique Note objects
+        const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
+        
+        const measures = [];
+        if (allNotes.length > 0) {
+            let currentMeasure = [];
+            let currentTicks = 0;
+            allNotes.forEach((note) => {
+                currentMeasure.push(note);
+                currentTicks += note.realValue;
+                if (currentTicks >= (numBeats * (4 / beatValue)) - 0.01) {
+                    measures.push(currentMeasure);
+                    currentMeasure = [];
+                    currentTicks = 0;
+                }
+            });
+            if (currentMeasure.length > 0) measures.push(currentMeasure);
+        }
 
-            const clefValue = document.getElementById('clef').value;
-            const keySig = document.getElementById('keySig').value;
-            const timeSigStr = document.getElementById('timeSig').value;
-            
-            // Validação simples para evitar erro ao digitar o compasso
-            if (!timeSigStr.includes('/')) return;
-            const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
-            if (!numBeats || !beatValue) return;
-            
-            const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-            
-            // Permitir renderizar apenas pentagramas vazios se não houver notas
-            const measures = [];
-            if (allNotes.length > 0) {
-                let currentMeasure = [];
-                let currentTicks = 0;
+        const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
+        const measuresPerLine = 2; // Reduced to 2 per line to give 16th notes enough space
+        const contentLines = Math.max(Math.ceil(measures.length / measuresPerLine), 0);
+        const totalLines = contentLines + extraStavesCount;
+        const mWidth = Math.floor((A4_WIDTH - 40) / measuresPerLine); 
+        
+        const calculatedHeight = Math.max(totalLines * 160 + 50, 200);
+        renderer.resize(A4_WIDTH, calculatedHeight);
+        const context = renderer.getContext();
 
-                allNotes.forEach((note) => {
-                    currentMeasure.push(note);
-                    currentTicks += note.realValue;
-                    if (currentTicks >= numBeats - 0.01) {
-                        measures.push(currentMeasure);
-                        currentMeasure = [];
-                        currentTicks = 0;
-                    }
-                });
-                if (currentMeasure.length > 0) measures.push(currentMeasure);
-            }
+        for (let i = 0; i < contentLines; i++) {
+            const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
+            const y = 20 + (i * 160);
 
-            const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-            const measuresPerLine = 4;
-            const contentLines = Math.max(Math.ceil(measures.length / measuresPerLine), 0);
-            const totalLines = contentLines + extraStavesCount;
-            const mWidth = Math.floor((A4_WIDTH - 40) / measuresPerLine); 
-            
-            // Ajuste dinâmico da altura baseado no conteúdo
-            const calculatedHeight = Math.max(totalLines * 160 + 50, 200);
-            renderer.resize(A4_WIDTH, calculatedHeight);
-            const context = renderer.getContext();
-
-            // Renderiza as notas existentes
-            for (let i = 0; i < contentLines; i++) {
-                const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
-                const y = 20 + (i * 160);
-
-                lineMeasures.forEach((mNotes, mIdx) => {
-                    const stave = new VF.Stave(20 + (mIdx * mWidth), y, mWidth);
-                    if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
-                    if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
-                    stave.setContext(context).draw();
-                    
-                    const voice = new VF.Voice({ num_beats: 0, beat_value: beatValue }).setStrict(false);
-                    voice.addTickables(mNotes);
-                    new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-                    voice.draw(context, stave);
-                });
-            }
+            lineMeasures.forEach((mNotes, mIdx) => {
+                const stave = new VF.Stave(20 + (mIdx * mWidth), y, mWidth);
+                if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
+                if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
+                stave.setContext(context).draw();
+                
+                // Set strict timing for the voice based on the time signature
+                const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
+                voice.addTickables(mNotes);
+                
+                // Format the notes to fit specifically inside this stave's width
+                new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
+                voice.draw(context, stave);
+                
+                if (document.getElementById('enableBeams').checked) {
+                    const beams = VF.Beam.generateBeams(mNotes);
+                    beams.forEach(b => b.setContext(context).draw());
+                }
+            });
+        }
 
             // Renderiza pentagramas vazios (extras ou se não houver notas)
             const startEmptyAt = contentLines;
@@ -242,7 +256,7 @@
 
         // --- LISTENERS PARA ATUALIZAÇÃO AUTOMÁTICA ---
         
-        const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput'];
+        const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
         
         autoUpdateElements.forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
