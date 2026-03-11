@@ -465,48 +465,96 @@
     });
 
 
-        // // --- FIX IS HERE ---
+     // // --- FIX IS HERE: GENERATE VEX_LOGIC CODE ---
 
 function updateLibraryCode() {
-    const title = document.getElementById('musicTitleInput').value || "NOVO EXERCÍCIO";
-    const currentHTML = document.documentElement.outerHTML;
+    const clefValue = document.getElementById('clef').value;
+    const keySig = document.getElementById('keySig').value;
+    const timeSigStr = document.getElementById('timeSig').value;
+    const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
     
-    // Sanitize the code to be placed inside a template literal
-    // We escape backticks and dollar signs to prevent breaking the wrapper
-    const escapedHTML = currentHTML
-        .replace(/`/g, '\\`Index')
-        .replace(/\${/g, '\\${');
-
-    const libraryTemplate = `Object.assign(BIBLIOTECA_LIVRO, {
-    "exercicios_auto": {
-        keywords: ["prática", "gerado"],
-        fase: "Extras", 
-        titulo: "${title.toUpperCase()}", 
-        icone: "✍️",
-        resumo: "Exercício gerado automaticamente pelo Sheet Music Generator.",
-        html_content: \`${escapedHTML}\`,
-        pagina: "Extra"
+    // Divide em compassos (logica identica ao renderFinal)
+    const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
+    const measures = [];
+    if (allNotes.length > 0) {
+        let currentMeasure = [];
+        let currentTicks = 0;
+        allNotes.forEach((note) => {
+            currentMeasure.push(note);
+            currentTicks += note.realValue;
+            if (currentTicks >= (numBeats * (4 / beatValue)) - 0.01) {
+                measures.push(currentMeasure);
+                currentMeasure = [];
+                currentTicks = 0;
+            }
+        });
+        if (currentMeasure.length > 0) measures.push(currentMeasure);
     }
-});`;
 
-    document.getElementById('generatedLibraryCode').value = libraryTemplate;
+    let generatedJS = `// --- CÓDIGO PARA VEX_LOGIC.JS ---\n\n`;
+    
+    measures.forEach((mNotes, index) => {
+        const mIdx = index + 1;
+        generatedJS += `const notes${mIdx} = [\n`;
+        
+        mNotes.forEach((note, nIdx) => {
+            const keys = JSON.stringify(note.keys);
+            const duration = note.duration;
+            const stem = note.getStemDirection();
+            
+            // Verifica se tem acidente (sustenido/bemol)
+            let noteCode = `    new StaveNote({ keys: ${keys}, duration: "${duration}", stem_direction: ${stem} })`;
+            
+            // Se houver modificadores (como acidentes), envolvemos na função acc()
+            if (note.modifiers.length > 0) {
+                const accType = note.modifiers[0].type; // simplificado
+                noteCode = `    acc(${noteCode.trim()}, "${accType}")`;
+            }
+
+            generatedJS += noteCode + (nIdx === mNotes.length - 1 ? "" : ",") + "\n";
+        });
+
+        generatedJS += `];\n\n`;
+    });
+
+    // Adiciona a lógica de desenho para os compassos gerados
+    generatedJS += `// --- DESENHO DOS COMPASSOS ---\n`;
+    measures.forEach((_, index) => {
+        const mIdx = index + 1;
+        const yPos = index < 2 ? 40 : 200; // Exemplo de quebra de linha simples
+        
+        if (mIdx === 1) {
+            generatedJS += `const stave1 = new Stave(10, ${yPos}, finalWidth * 0.45);\nstave1.addClef("${clefValue}").addTimeSignature("${timeSigStr}").addKeySignature("${keySig}");\n`;
+        } else {
+            const prevStave = `stave${mIdx - 1}`;
+            const width = mIdx % 2 === 0 ? "finalWidth * 0.50" : "finalWidth * 0.90";
+            const xPos = mIdx % 2 === 0 ? `${prevStave}.width + ${prevStave}.x` : "10";
+            generatedJS += `const stave${mIdx} = new Stave(${xPos}, ${yPos}, ${width});\n`;
+        }
+        
+        generatedJS += `stave${mIdx}.setContext(context).draw();\n`;
+        generatedJS += `Formatter.FormatAndDraw(context, stave${mIdx}, notes${mIdx});\n\n`;
+    });
+
+    document.getElementById('generatedLibraryCode').value = generatedJS;
 }
 
-// Add 'updateLibraryCode' to your existing autoUpdateElements listener
-const extendedAutoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
-extendedAutoUpdateElements.forEach(id => {
+// Atualiza os listeners
+const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
+autoUpdateElements.forEach(id => {
     document.getElementById(id).addEventListener('input', updateLibraryCode);
 });
 
-// Listener for the copy button
 document.getElementById('copyCodeBtn').addEventListener('click', () => {
     const codeBox = document.getElementById('generatedLibraryCode');
     codeBox.select();
     document.execCommand('copy');
-    alert('Code copied to clipboard!');
+    // feedback visual discreto
+    const originalText = document.getElementById('copyCodeBtn').innerText;
+    document.getElementById('copyCodeBtn').innerText = "Copiado!";
+    setTimeout(() => { document.getElementById('copyCodeBtn').innerText = originalText; }, 2000);
 });
 
-// Initialize on load
 window.addEventListener('DOMContentLoaded', updateLibraryCode);
     </script>
 </body>
