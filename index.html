@@ -467,83 +467,122 @@
 
 
 
+
 function updateLibraryCode() {
-    const clefValue = document.getElementById('clef').value;
-    const keySig = document.getElementById('keySig').value;
-    const timeSigStr = document.getElementById('timeSig').value;
-    const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-    
-    const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
-    const measures = [];
-    if (allNotes.length > 0) {
-        let currentMeasure = [];
-        let currentTicks = 0;
-        allNotes.forEach((note) => {
-            currentMeasure.push(note);
-            currentTicks += note.realValue;
-            if (currentTicks >= (numBeats * (4 / beatValue)) - 0.01) {
-                measures.push(currentMeasure);
-                currentMeasure = [];
-                currentTicks = 0;
-            }
+    try {
+        const outputBox = document.getElementById('generatedLibraryCode');
+        if (!outputBox) return;
+
+        const clefValue = document.getElementById('clef').value;
+        const keySig = document.getElementById('keySig').value;
+        const timeSigStr = document.getElementById('timeSig').value;
+        const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
+        
+        const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
+        const measures = [];
+        if (allNotes.length > 0) {
+            let currentMeasure = [];
+            let currentTicks = 0;
+            allNotes.forEach((note) => {
+                currentMeasure.push(note);
+                currentTicks += note.realValue;
+                if (currentTicks >= (numBeats * (4 / beatValue)) - 0.01) {
+                    measures.push(currentMeasure);
+                    currentMeasure = [];
+                    currentTicks = 0;
+                }
+            });
+            if (currentMeasure.length > 0) measures.push(currentMeasure);
+        }
+
+        let generatedJS = `// --- CÓDIGO PARA VEX_LOGIC.JS ---\n\n`;
+        
+        measures.forEach((mNotes, index) => {
+            const mIdx = index + 1;
+            generatedJS += `const notes${mIdx} = [\n`;
+            
+            mNotes.forEach((note, nIdx) => {
+                const keys = JSON.stringify(note.keys);
+                const duration = note.duration;
+                const stemVal = note.getStemDirection();
+                const stemStr = stemVal === 1 ? "VF.Stem.UP" : "VF.Stem.DOWN";
+                
+                let noteCode = `    new VF.StaveNote({ keys: ${keys}, duration: "${duration}", stem_direction: ${stemStr} })`;
+                
+                if (note.modifiers.length > 0) {
+                    const acc = note.modifiers.find(m => m.getCategory() === "accidentals");
+                    if (acc) {
+                        noteCode = `    acc(${noteCode.trim()}, "${acc.type}")`;
+                    }
+                }
+                generatedJS += noteCode + (nIdx === mNotes.length - 1 ? "" : ",") + "\n";
+            });
+            generatedJS += `];\n\n`;
         });
-        if (currentMeasure.length > 0) measures.push(currentMeasure);
+
+        generatedJS += `// --- DESENHO DOS COMPASSOS ---\n`;
+        measures.forEach((_, index) => {
+            const mIdx = index + 1;
+            const lineIndex = Math.floor(index / 2);
+            const yPos = 40 + (lineIndex * 160);
+            
+            if (mIdx === 1) {
+                generatedJS += `const stave1 = new VF.Stave(10, ${yPos}, finalWidth * 0.45);\nstave1.addClef("${clefValue}").addTimeSignature("${timeSigStr}").addKeySignature("${keySig}");\n`;
+            } else {
+                const isNewLine = (mIdx - 1) % 2 === 0;
+                const prevStave = `stave${mIdx - 1}`;
+                const width = isNewLine ? "finalWidth * 0.90" : "finalWidth * 0.50";
+                const xPos = isNewLine ? "10" : `${prevStave}.width + ${prevStave}.x`;
+                generatedJS += `const stave${mIdx} = new VF.Stave(${xPos}, ${yPos}, ${width});\n`;
+            }
+            generatedJS += `stave${mIdx}.setContext(context).draw();\n`;
+            generatedJS += `VF.Formatter.FormatAndDraw(context, stave${mIdx}, notes${mIdx});\n\n`;
+        });
+
+        outputBox.value = generatedJS;
+    } catch (e) {
+        console.error("Erro ao gerar código da biblioteca:", e);
+    }
+}
+
+// --- INITIALIZATION AND EVENT LISTENERS ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Vincular campos de entrada para atualização automática
+    const inputs = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => {
+                renderPreview();
+                renderFinal();
+                updateLibraryCode();
+            });
+        }
+    });
+
+    // 2. Lógica do Botão de Copiar (API Moderna)
+    const copyBtn = document.getElementById('copyCodeBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const code = document.getElementById('generatedLibraryCode').value;
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = copyBtn.innerText;
+                copyBtn.innerText = "Copiado!";
+                copyBtn.style.background = "#28a745";
+                setTimeout(() => { 
+                    copyBtn.innerText = originalText;
+                    copyBtn.style.background = "#343a40";
+                }, 2000);
+            });
+        });
     }
 
-    let generatedJS = `// --- CÓDIGO PARA VEX_LOGIC.JS ---\n\n`;
-    
-    measures.forEach((mNotes, index) => {
-        const mIdx = index + 1;
-        generatedJS += `const notes${mIdx} = [\n`;
-        
-        mNotes.forEach((note, nIdx) => {
-            const keys = JSON.stringify(note.keys);
-            const duration = note.duration;
-            
-            // Mapeia o valor interno do stem (1 ou -1) de volta para a constante VF
-            const stemVal = note.getStemDirection();
-            const stemStr = stemVal === 1 ? "VF.Stem.UP" : "VF.Stem.DOWN";
-            
-            let noteCode = `    new VF.StaveNote({ keys: ${keys}, duration: "${duration}", stem_direction: ${stemStr} })`;
-            
-            // Verifica modificadores (Acidentes)
-            if (note.modifiers.length > 0) {
-                // Tenta capturar o tipo de acidente (#, b, n)
-                const acc = note.modifiers.find(m => m.getCategory() === "accidentals");
-                if (acc) {
-                    const type = acc.type;
-                    noteCode = `    acc(${noteCode.trim()}, "${type}")`;
-                }
-            }
-
-            generatedJS += noteCode + (nIdx === mNotes.length - 1 ? "" : ",") + "\n";
-        });
-
-        generatedJS += `];\n\n`;
-    });
-
-    generatedJS += `// --- DESENHO DOS COMPASSOS ---\n`;
-    measures.forEach((_, index) => {
-        const mIdx = index + 1;
-        const lineIndex = Math.floor(index / 2); // 2 compassos por linha
-        const yPos = 40 + (lineIndex * 160);
-        
-        if (mIdx === 1) {
-            generatedJS += `const stave1 = new VF.Stave(10, ${yPos}, finalWidth * 0.45);\nstave1.addClef("${clefValue}").addTimeSignature("${timeSigStr}").addKeySignature("${keySig}");\n`;
-        } else {
-            const isNewLine = (mIdx - 1) % 2 === 0;
-            const prevStave = `stave${mIdx - 1}`;
-            const width = isNewLine ? "finalWidth * 0.90" : "finalWidth * 0.50";
-            const xPos = isNewLine ? "10" : `${prevStave}.width + ${prevStave}.x`;
-            generatedJS += `const stave${mIdx} = new VF.Stave(${xPos}, ${yPos}, ${width});\n`;
-        }
-        
-        generatedJS += `stave${mIdx}.setContext(context).draw();\n`;
-        generatedJS += `VF.Formatter.FormatAndDraw(context, stave${mIdx}, notes${mIdx});\n\n`;
-    });
-
-    document.getElementById('generatedLibraryCode').value = generatedJS;
-}
+    // 3. Execução Inicial
+    renderPreview();
+    renderFinal();
+    updateLibraryCode();
+});
     </script>
 </body>
 </html>
