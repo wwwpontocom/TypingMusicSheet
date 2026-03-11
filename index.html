@@ -465,7 +465,7 @@
     });
 
 
-     // // --- FIX IS HERE: GENERATE VEX_LOGIC CODE ---
+
 
 function updateLibraryCode() {
     const clefValue = document.getElementById('clef').value;
@@ -473,7 +473,6 @@ function updateLibraryCode() {
     const timeSigStr = document.getElementById('timeSig').value;
     const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
     
-    // Divide em compassos (logica identica ao renderFinal)
     const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
     const measures = [];
     if (allNotes.length > 0) {
@@ -500,15 +499,21 @@ function updateLibraryCode() {
         mNotes.forEach((note, nIdx) => {
             const keys = JSON.stringify(note.keys);
             const duration = note.duration;
-            const stem = note.getStemDirection();
             
-            // Verifica se tem acidente (sustenido/bemol)
-            let noteCode = `    new StaveNote({ keys: ${keys}, duration: "${duration}", stem_direction: ${stem} })`;
+            // Mapeia o valor interno do stem (1 ou -1) de volta para a constante VF
+            const stemVal = note.getStemDirection();
+            const stemStr = stemVal === 1 ? "VF.Stem.UP" : "VF.Stem.DOWN";
             
-            // Se houver modificadores (como acidentes), envolvemos na função acc()
+            let noteCode = `    new VF.StaveNote({ keys: ${keys}, duration: "${duration}", stem_direction: ${stemStr} })`;
+            
+            // Verifica modificadores (Acidentes)
             if (note.modifiers.length > 0) {
-                const accType = note.modifiers[0].type; // simplificado
-                noteCode = `    acc(${noteCode.trim()}, "${accType}")`;
+                // Tenta capturar o tipo de acidente (#, b, n)
+                const acc = note.modifiers.find(m => m.getCategory() === "accidentals");
+                if (acc) {
+                    const type = acc.type;
+                    noteCode = `    acc(${noteCode.trim()}, "${type}")`;
+                }
             }
 
             generatedJS += noteCode + (nIdx === mNotes.length - 1 ? "" : ",") + "\n";
@@ -517,45 +522,28 @@ function updateLibraryCode() {
         generatedJS += `];\n\n`;
     });
 
-    // Adiciona a lógica de desenho para os compassos gerados
     generatedJS += `// --- DESENHO DOS COMPASSOS ---\n`;
     measures.forEach((_, index) => {
         const mIdx = index + 1;
-        const yPos = index < 2 ? 40 : 200; // Exemplo de quebra de linha simples
+        const lineIndex = Math.floor(index / 2); // 2 compassos por linha
+        const yPos = 40 + (lineIndex * 160);
         
         if (mIdx === 1) {
-            generatedJS += `const stave1 = new Stave(10, ${yPos}, finalWidth * 0.45);\nstave1.addClef("${clefValue}").addTimeSignature("${timeSigStr}").addKeySignature("${keySig}");\n`;
+            generatedJS += `const stave1 = new VF.Stave(10, ${yPos}, finalWidth * 0.45);\nstave1.addClef("${clefValue}").addTimeSignature("${timeSigStr}").addKeySignature("${keySig}");\n`;
         } else {
+            const isNewLine = (mIdx - 1) % 2 === 0;
             const prevStave = `stave${mIdx - 1}`;
-            const width = mIdx % 2 === 0 ? "finalWidth * 0.50" : "finalWidth * 0.90";
-            const xPos = mIdx % 2 === 0 ? `${prevStave}.width + ${prevStave}.x` : "10";
-            generatedJS += `const stave${mIdx} = new Stave(${xPos}, ${yPos}, ${width});\n`;
+            const width = isNewLine ? "finalWidth * 0.90" : "finalWidth * 0.50";
+            const xPos = isNewLine ? "10" : `${prevStave}.width + ${prevStave}.x`;
+            generatedJS += `const stave${mIdx} = new VF.Stave(${xPos}, ${yPos}, ${width});\n`;
         }
         
         generatedJS += `stave${mIdx}.setContext(context).draw();\n`;
-        generatedJS += `Formatter.FormatAndDraw(context, stave${mIdx}, notes${mIdx});\n\n`;
+        generatedJS += `VF.Formatter.FormatAndDraw(context, stave${mIdx}, notes${mIdx});\n\n`;
     });
 
     document.getElementById('generatedLibraryCode').value = generatedJS;
 }
-
-// Atualiza os listeners
-const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
-autoUpdateElements.forEach(id => {
-    document.getElementById(id).addEventListener('input', updateLibraryCode);
-});
-
-document.getElementById('copyCodeBtn').addEventListener('click', () => {
-    const codeBox = document.getElementById('generatedLibraryCode');
-    codeBox.select();
-    document.execCommand('copy');
-    // feedback visual discreto
-    const originalText = document.getElementById('copyCodeBtn').innerText;
-    document.getElementById('copyCodeBtn').innerText = "Copiado!";
-    setTimeout(() => { document.getElementById('copyCodeBtn').innerText = originalText; }, 2000);
-});
-
-window.addEventListener('DOMContentLoaded', updateLibraryCode);
     </script>
 </body>
 </html>
