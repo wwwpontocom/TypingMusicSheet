@@ -83,6 +83,9 @@
         <div>
             <label for="enableBeams">Beams:</label>
             <input type="checkbox" id="enableBeams" checked>
+            <label for="generatedLibraryCode">Generated Library Code (for data_exercicios.js):</label>
+<textarea id="generatedLibraryCode" readonly style="background: #e9ecef; color: #495057; font-size: 11px; height: 120px;"></textarea>
+<button id="copyCodeBtn" style="background: #343a40; margin-top: 5px; width: 100%;">Copy to Clipboard</button>
         </div>
     </div>
 
@@ -460,6 +463,51 @@
     document.getElementById('downloadAudioBtn').addEventListener('click', () => {
         generateAudio(true);
     });
+
+
+        // // --- FIX IS HERE ---
+
+function updateLibraryCode() {
+    const title = document.getElementById('musicTitleInput').value || "NOVO EXERCÍCIO";
+    const currentHTML = document.documentElement.outerHTML;
+    
+    // Sanitize the code to be placed inside a template literal
+    // We escape backticks and dollar signs to prevent breaking the wrapper
+    const escapedHTML = currentHTML
+        .replace(/`/g, '\\`Index')
+        .replace(/\${/g, '\\${');
+
+    const libraryTemplate = `Object.assign(BIBLIOTECA_LIVRO, {
+    "exercicios_auto": {
+        keywords: ["prática", "gerado"],
+        fase: "Extras", 
+        titulo: "${title.toUpperCase()}", 
+        icone: "✍️",
+        resumo: "Exercício gerado automaticamente pelo Sheet Music Generator.",
+        html_content: \`${escapedHTML}\`,
+        pagina: "Extra"
+    }
+});`;
+
+    document.getElementById('generatedLibraryCode').value = libraryTemplate;
+}
+
+// Add 'updateLibraryCode' to your existing autoUpdateElements listener
+const extendedAutoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
+extendedAutoUpdateElements.forEach(id => {
+    document.getElementById(id).addEventListener('input', updateLibraryCode);
+});
+
+// Listener for the copy button
+document.getElementById('copyCodeBtn').addEventListener('click', () => {
+    const codeBox = document.getElementById('generatedLibraryCode');
+    codeBox.select();
+    document.execCommand('copy');
+    alert('Code copied to clipboard!');
+});
+
+// Initialize on load
+window.addEventListener('DOMContentLoaded', updateLibraryCode);
     </script>
 </body>
 </html>
