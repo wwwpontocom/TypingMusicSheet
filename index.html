@@ -70,6 +70,17 @@
             <input type="text" id="timeSig" value="4/4">
         </div>
 
+        <div style="grid-column: span 3; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px dashed #007bff; margin-bottom: 10px;">
+            <label style="color: #007bff;">🎤 Voice Notation Assistant</label>
+            <div id="transcript-box" style="background: white; border: 1px solid #ddd; min-height: 50px; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 14px; border-radius: 4px; color: #333;"></div>
+            <div class="btn-group" style="justify-content: flex-start;">
+                <button id="start-btn" style="background: #28a745;">Start Dictation</button>
+                <button id="stop-btn" style="background: #dc3545;" disabled>Stop</button>
+                <button id="copy-to-notation" style="background: #007bff;">Insert into Notation ⬇️</button>
+            </div>
+            <p id="status" style="font-size: 12px; margin-top: 5px; color: #666;">Ready to listen...</p>
+        </div>
+        
         <label for="notation">Notation Data (Edit Mode):</label>
         <textarea id="notation">1 C4 h, 1 E4 q, 1 G4 q, 1 F4 q, 1 A4 q, 1 G4 h, 1 E4 q, 1 G4 q, 1 C5 q, 1 B4 8, 1 A4 8, 1 G4 q, 1 F4 8, 1 E4 8, 1 D4 q, 1 G4 q, 4 C4 16, 4 E4 16, 4 G4 16, 4 C5 16, 1 F4 q, 2 D4 8, 1 G4 q, 2 F4 8, 1 E4 q, 1 A4 q, 1 D4 q, 1 G4 q, 1 C4 q, 1 E4 q, 1 G4 q, 1 B4 q, 1 C5 8, 1 B4 16, 1 A4 16, 1 G4 8, 1 F4 16, 1 E4 16, 1 D4 q, 1 G4 q, 1 B4 q, 1 D5 q, 1 C5 w</textarea>
 
@@ -270,6 +281,45 @@
             }
         }
 
+
+        const startBtn = document.getElementById('start-btn');
+const stopBtn = document.getElementById('stop-btn');
+const statusText = document.getElementById('status');
+const transcriptBox = document.getElementById('transcript-box');
+const notationArea = document.getElementById('notation');
+const voiceCopyBtn = document.getElementById('copy-to-notation'); // Renamed slightly to avoid conflict with copyCodeBtn
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SpeechRecognition) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US'; 
+    recognition.continuous = true;
+
+    recognition.onresult = (event) => {
+        const lastIndex = event.results.length - 1;
+        let text = event.results[lastIndex][0].transcript.toLowerCase().trim();
+        // Basic cleanup: replace "quarter note" with "q", etc.
+        text = text.replace(/quarter note/g, "q").replace(/half note/g, "h");
+        transcriptBox.innerText += (transcriptBox.innerText ? ", " : "") + text;
+    };
+
+    recognition.onstart = () => { statusText.innerText = "🎤 Listening..."; startBtn.disabled = true; stopBtn.disabled = false; };
+    recognition.onend = () => { statusText.innerText = "Paused."; startBtn.disabled = false; stopBtn.disabled = true; };
+
+    startBtn.onclick = () => recognition.start();
+    stopBtn.onclick = () => recognition.stop();
+
+    voiceCopyBtn.onclick = () => {
+        notationArea.value += (notationArea.value ? ", " : "") + transcriptBox.innerText;
+        transcriptBox.innerText = "";
+        renderPreview();
+        renderFinal();
+        updateLibraryCode();
+    };
+} else {
+    statusText.innerText = "Speech Recognition not supported in this browser.";
+}
+        
         // --- LISTENERS PARA ATUALIZAÇÃO AUTOMÁTICA ---
         
         const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
