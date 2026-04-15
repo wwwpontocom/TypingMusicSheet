@@ -1,673 +1,2141 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sheet Music Generator Pro</title>
-    <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+    <title>Estudo: Arquitetura Comercial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: #f4f4f9; color: #333; }
-        .controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: left; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
-        .controls label { font-weight: bold; display: block; margin-bottom: 5px; }
-        
-        /* Novo estilo para o campo de título */
-        #musicTitleInput { width: 100%; grid-column: span 3; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
-        
-        textarea#notation { width: 100%; grid-column: span 3; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 14px; }
-        .btn-group { grid-column: span 3; display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
-        
-        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; transition: background 0.2s; }
-        button:hover { background: #0056b3; }
-        #finalizeBtn { background: #6f42c1; }
-        #addStaveBtn { background: #17a2b8; }
-        #printBtn { background: #28a745; }
-        
-        .canvas-section { width: 100%; max-width: 800px; margin-top: 20px; }
-        .canvas-label { font-weight: bold; margin-bottom: 10px; color: #666; text-transform: uppercase; font-size: 0.8em; letter-spacing: 1px; }
-        
-        .sheet-container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); overflow: hidden; min-height: 150px; display: flex; flex-direction: column; align-items: center; width: 100%; box-sizing: border-box; }
-
-        /* Estilo do Título na Partitura */
-        .render-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; width: 100%; }
-
-        @media print {
-            @page { margin: 1cm; }
-            .controls, .canvas-label, h1, #preview-section { display: none !important; }
-            body { background: white; padding: 0; margin: 0; }
-            .canvas-section { margin: 0; padding: 0; width: 100%; max-width: 100%; }
-            #final-section { box-shadow: none; border: none; width: 100%; }
-            .sheet-container { box-shadow: none; padding: 0; width: 100%; overflow: visible; }
-            svg { width: 100% !important; height: auto !important; }
+        /* --- Inline Style (Centered Body & Single Container) --- */
+        :root {
+            --primary: #1a1a1a;
+            --accent: #a51c30; 
+            --bg: #f9f9f9;
+            --text: #333;
         }
-    </style>
+
+        body {
+            margin: 0; padding: 0;
+            display: flex; justify-content: center; align-items: flex-start;
+            min-height: 100vh; background-color: var(--bg);
+            font-family: 'Inter', sans-serif; color: var(--text); line-height: 1.6;
+        }
+
+        .container {
+            width: 100%; max-width: 850px; background: white;
+            padding: 60px; margin: 40px 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08); border-radius: 4px;
+        }
+
+        /* Pagination Controls */
+      .nav-pages {
+            display: flex; gap: 10px; margin-bottom: 30px;
+        }
+        .nav-btn {
+           flex-shrink: 0;
+            padding: 8px 16px; border: 1px solid var(--primary); background: none;
+            cursor: pointer; font-family: 'Inter'; transition: 0.3s;
+        }
+        .nav-btn.active { background: var(--primary); color: white; }
+        
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* Existing Typography & Layout */
+        h1, h2, h3 { font-family: 'Playfair Display', serif; color: var(--primary); line-height: 1.2; }
+        .main-header { text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 20px; margin-bottom: 40px; letter-spacing: 2px; text-transform: uppercase; }
+        .market-context { margin-bottom: 40px; color: #666; font-size: 0.95em; text-align: justify; border-bottom: 1px solid #eee; padding-bottom: 30px; }
+        .intro-text { font-size: 1.1em; font-style: italic; border-left: 5px solid var(--accent); padding-left: 25px; margin-bottom: 50px; color: #444; animation: fadeIn 1.2s ease-out; text-align: justify; }
+        .lecture-title { text-align: center; font-size: 2.8em; margin-top: 60px; color: var(--accent); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .scroll-reveal { opacity: 0; transform: translateY(40px); transition: all 0.9s cubic-bezier(0.17, 0.55, 0.55, 1); margin-bottom: 45px; }
+        .scroll-reveal.visible { opacity: 1; transform: translateY(0); }
+
+        .point-card { background: #fff; border: 1px solid #eaeaea; padding: 30px; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .point-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 12px 20px rgba(165, 28, 48, 0.1); }
+        table { width: 100%; border-collapse: collapse; margin: 50px 0; font-size: 0.95em; }
+        th, td { text-align: left; padding: 18px; border-bottom: 1px solid #eee; }
+        th { background-color: var(--primary); color: white; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+        tr:hover { background-color: #fdf2f3; }
+        .professor-note { background: var(--primary); color: #eee; padding: 40px; border-radius: 4px; font-style: italic; margin-top: 60px; position: relative; }
+        .professor-note::before { content: "“"; font-size: 60px; color: var(--accent); position: absolute; top: 10px; left: 15px; font-family: 'Playfair Display', serif; }
+        .question-box { margin-top: 50px; padding: 30px; background: #f1f3f5; border-radius: 4px; text-align: center; font-weight: 600; color: var(--accent); border: 1px dashed var(--accent); }
+
+    /* Optional: This hides the scrollbar on Chrome/Safari to keep it elegant */
+    .nav-pages::-webkit-scrollbar {
+        display: none;
+    }
+</style>
 </head>
 <body>
 
-    <h1>Sheet Music Generator</h1>
+<div class="container">
+   <nav class="nav-pages" style="display: flex; overflow-x: auto; white-space: nowrap; gap: 10px; padding: 10px; -webkit-overflow-scrolling: touch; scrollbar-width: none; border-bottom: 1px solid #eee;">
+    <button class="nav-btn active" onclick="showPage(1)">Página 1</button>
+    <button class="nav-btn" onclick="showPage(2)">Página 2</button>
+    <button class="nav-btn" onclick="showPage(3)">Página 3</button>
+    <button class="nav-btn" onclick="showPage(4)">Página 4</button>
+    <button class="nav-btn" onclick="showPage(5)">Página 5</button>
+    <button class="nav-btn" onclick="showPage(6)">Página 6</button>
+    <button class="nav-btn" onclick="showPage(7)">Página 7</button>
+    <button class="nav-btn" onclick="showPage(8)">Página 8</button>
+    <button class="nav-btn" onclick="showPage(9)">Página 9</button>
+    <button class="nav-btn" onclick="showPage(10)">Página 10</button>
+    <button class="nav-btn" onclick="showPage(11)">Página 11</button>
+<button class="nav-btn" onclick="showPage(12)">Página 12</button>
+<button class="nav-btn" onclick="showPage(13)">Página 13</button>
+<button class="nav-btn" onclick="showPage(14)">Página 14</button>
+<button class="nav-btn" onclick="showPage(15)">Página 15</button>
+<button class="nav-btn" onclick="showPage(16)">Página 16</button>
+<button class="nav-btn" onclick="showPage(17)">Página 17</button>
+<button class="nav-btn" onclick="showPage(18)">Página 18</button>
+<button class="nav-btn" onclick="showPage(19)">Página 19</button>
+<button class="nav-btn" onclick="showPage(20)">Página 20</button>
+<button class="nav-btn" onclick="showPage(21)">Página 21</button>
+<button class="nav-btn" onclick="showPage(22)">Página 22</button>
+<button class="nav-btn" onclick="showPage(23)">Página 23</button>
+<button class="nav-btn" onclick="showPage(24)">Página 24</button>
+<button class="nav-btn" onclick="showPage(25)">Página 25</button>
+<button class="nav-btn" onclick="showPage(26)">Página 26</button>
+<button class="nav-btn" onclick="showPage(27)">Página 27</button>
+<button class="nav-btn" onclick="showPage(28)">Página 28</button>
+<button class="nav-btn" onclick="showPage(29)">Página 29</button>
+<button class="nav-btn" onclick="showPage(29)">Página 30</button>
+</nav>
 
-    <div class="controls">
-        <label for="musicTitleInput">Music Title:</label>
-        <input type="text" id="musicTitleInput" placeholder="Enter song title here..." value="My Composition">
+    <div id="page1" class="page active">
+        <header class="main-header">
+        <h1>Projeto de Arquitetura de Interiores Comerciais</h1>
+    </header>
 
-        <div>
-            <label for="clef">Clef:</label>
-            <select id="clef">
-                <option value="treble">Treble (G)</option>
-                <option value="bass">Bass (F)</option>
-            </select>
-        </div>
-        <div>
-            <label for="keySig">Key:</label>
-            <select id="keySig">
-                <option value="C">C Major</option>
-                <option value="G">G Major</option>
-                <option value="F">F Major</option>
-                <option value="Eb">Eb Major</option>
-            </select>
-        </div>
-        <div>
-            <label for="timeSig">Time Signature:</label>
-            <input type="text" id="timeSig" value="4/4">
-        </div>
-
-        <div style="grid-column: span 3; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px dashed #007bff; margin-bottom: 10px;">
-            <label style="color: #007bff;">🎤 Voice Notation Assistant</label>
-            <div id="transcript-box" style="background: white; border: 1px solid #ddd; min-height: 50px; padding: 10px; margin: 10px 0; font-family: monospace; font-size: 14px; border-radius: 4px; color: #333;"></div>
-            <div class="btn-group" style="justify-content: flex-start;">
-                <button id="start-btn" style="background: #28a745;">Start Dictation</button>
-                <button id="stop-btn" style="background: #dc3545;" disabled>Stop</button>
-                <button id="lang-toggle" style="background: #6c757d;">Language: EN</button>
-                <button id="copy-to-notation" style="background: #007bff;">Insert into Notation ⬇️</button>
-            </div>
-            <p id="status" style="font-size: 12px; margin-top: 5px; color: #666;">Ready to listen...</p>
-        </div>
-        
-        <label for="notation">Notation Data (Edit Mode):</label>
-        <textarea id="notation">1 C4 h, 1 E4 q, 1 G4 q, 1 F4 q, 1 A4 q, 1 G4 h, 1 E4 q, 1 G4 q, 1 C5 q, 1 B4 8, 1 A4 8, 1 G4 q, 1 F4 8, 1 E4 8, 1 D4 q, 1 G4 q, 4 C4 16, 4 E4 16, 4 G4 16, 4 C5 16, 1 F4 q, 2 D4 8, 1 G4 q, 2 F4 8, 1 E4 q, 1 A4 q, 1 D4 q, 1 G4 q, 1 C4 q, 1 E4 q, 1 G4 q, 1 B4 q, 1 C5 8, 1 B4 16, 1 A4 16, 1 G4 8, 1 F4 16, 1 E4 16, 1 D4 q, 1 G4 q, 1 B4 q, 1 D5 q, 1 C5 w</textarea>
-
-        <div class="btn-group">
-            <button id="finalizeBtn">OK - Finalize Sheet</button>
-            <button id="addStaveBtn">Add Empty Pentagram</button>
-            <button id="printBtn">Print Final Version</button>
-            <button id="playBtn" style="background: #ffc107; color: #333;">Play Audio</button>
-<button id="downloadAudioBtn" style="background: #6c757d;">Download Audio (WAV)</button>
-        </div>
-        <div>
-            <label for="enableBeams">Beams:</label>
-            <input type="checkbox" id="enableBeams" checked>
-            <label for="generatedLibraryCode">Generated Library Code (for data_exercicios.js):</label>
-<textarea id="generatedLibraryCode" readonly style="background: #e9ecef; color: #495057; font-size: 11px; height: 120px;"></textarea>
-<button id="copyCodeBtn" style="background: #343a40; margin-top: 5px; width: 100%;">Copy to Clipboard</button>
-        </div>
+<div class="market-context" style="margin-bottom: 40px; color: #666; font-size: 0.95em; text-align: justify; border-bottom: 1px solid #eee; padding-bottom: 30px;">
+        O mercado da Arquitetura de interiores é bastante amplo. Nele, os projetos comerciais representam uma generosa fatia e uma ótima oportunidade de trabalho para os projetistas, que podem entrar em contato com diferentes tipologias, técnicas e materiais. Os estabelecimentos comerciais estão constantemente se renovando, assim como as tendências de diversas áreas, como a arte, a música, a moda, o cinema e a gastronomia. Ao mesmo tempo, o consumidor também evolui a sua forma de consumo e os seus costumes. Assim, é imprescindível que os profissionais se mantenham atualizados com as mudanças de mercado e comportamento, de forma a conceber projetos adequados às marcas e em sintonia com o usuário final.
+    </div>
+    <div class="intro-text">
+        A arquitetura de interiores comerciais é uma área de atuação profissional que permite ao projetista vivenciar diferentes propostas de trabalho em realidades financeiras e conceituais bastante distintas. Assim, esse profissional deve estar atento às tendências de artes, moda, música, gastronomia e estilos de vida, pois estas vão influenciar diretamente no comportamento do público-alvo de determinado estabelecimento comercial. Afinal, a marca e as características do empreendimento a ser projetado devem estar em sintonia com o perfil do cliente desejado. Dessa forma, cores, aromas, materiais e sons precisam de harmonia projetual.
     </div>
 
-    <div class="canvas-section" id="preview-section">
-        <div class="canvas-label">Draft Preview</div>
-        <div id="preview-container" class="sheet-container"></div>
-    </div>
-
-    <div class="canvas-section" id="final-section">
-        <div class="canvas-label">Final Sheet (A4 Ready)</div>
-        <div id="final-container" class="sheet-container">
-            </div>
-    </div>
-
-    <script>
-        const VF = Vex.Flow;
-        let extraStavesCount = 0;
-        const A4_WIDTH = 780; 
-
-        function getStemDirection(pitch, octave, clef) {
-            const noteNames = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-            const noteIndex = noteNames.indexOf(pitch[0].toUpperCase());
-            const val = (octave * 7) + noteIndex;
-            return (clef === 'treble' ? val >= 34 : val >= 22) ? VF.Stem.DOWN : VF.Stem.UP;
-        }
-
-        function getDurationValue(dur) {
-            const values = { 'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25 };
-            return values[dur] || 1;
-        }
-
-        function parseNotation(text, clef) {
-            const sections = text.split(',').filter(s => s.trim() !== "");
-            const vexNotes = [];
-            const durationMap = { 'w': 'w', 'h': 'h', 'q': 'q', '8': '8', '16': '16' };
-
-            sections.forEach(item => {
-                const match = item.trim().match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
-                if (match) {
-                    const count = parseInt(match[1]);
-                    const fullPitch = match[2];
-                    const pitchName = fullPitch.match(/[A-Ga-g#b]+/)[0];
-                    const octave = parseInt(fullPitch.match(/\d+/)[0]);
-                    const dur = durationMap[match[3]] || 'q';
-                    const key = fullPitch.replace(/([A-G][#b]?)/i, '$1/');
-
-                    for (let i = 0; i < count; i++) {
-                        const note = new VF.StaveNote({ 
-                            keys: [key], duration: dur,
-                            stem_direction: getStemDirection(pitchName, octave, clef)
-                        });
-                        if (fullPitch.includes('#')) note.addModifier(new VF.Accidental('#'), 0);
-                        if (fullPitch.toLowerCase().includes('b') && (fullPitch[0].toUpperCase() !== 'B' || fullPitch.toLowerCase().startsWith('bb'))) {
-                            note.addModifier(new VF.Accidental('b'), 0);
-                        }
-                        note.realValue = getDurationValue(dur);
-                        vexNotes.push(note);
-                    }
-                }
-            });
-            return vexNotes;
-        }
-
-        function renderPreview() {
-        const container = document.getElementById('preview-container');
-        container.innerHTML = '';
-        const notes = parseNotation(document.getElementById('notation').value, document.getElementById('clef').value);
-        if (notes.length === 0) return;
-
-        const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-        renderer.resize(A4_WIDTH, 150);
-        const context = renderer.getContext();
-        const stave = new VF.Stave(10, 10, A4_WIDTH - 20).addClef(document.getElementById('clef').value).setContext(context).draw();
-        
-        const voice = new VF.Voice({ num_beats: 0, beat_value: 4 }).setStrict(false);
-        voice.addTickables(notes);
-        new VF.Formatter().joinVoices([voice]).formatToStave([voice], stave);
-        
-        voice.draw(context, stave);
-        
-        // Apply beams only if checked
-        if (document.getElementById('enableBeams').checked) {
-            const beams = VF.Beam.generateBeams(notes);
-            beams.forEach(b => b.setContext(context).draw());
-        }
-    }
-
-    function renderFinal() {
-        const container = document.getElementById('final-container');
-        container.innerHTML = '';
-        
-        const titleVal = document.getElementById('musicTitleInput').value;
-        if(titleVal.trim() !== "") {
-            const titleElement = document.createElement('div');
-            titleElement.className = 'render-title';
-            titleElement.innerText = titleVal;
-            container.appendChild(titleElement);
-        }
-
-        const clefValue = document.getElementById('clef').value;
-        const keySig = document.getElementById('keySig').value;
-        const timeSigStr = document.getElementById('timeSig').value;
-        
-        if (!timeSigStr.includes('/')) return;
-        const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
-        
-        // IMPORTANT: Re-parse here so the final canvas has its own unique Note objects
-        const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-        
-        const measures = [];
-        if (allNotes.length > 0) {
-            let currentMeasure = [];
-            let currentTicks = 0;
-            allNotes.forEach((note) => {
-                currentMeasure.push(note);
-                currentTicks += note.realValue;
-                if (currentTicks >= (numBeats * (4 / beatValue)) - 0.01) {
-                    measures.push(currentMeasure);
-                    currentMeasure = [];
-                    currentTicks = 0;
-                }
-            });
-            if (currentMeasure.length > 0) measures.push(currentMeasure);
-        }
-
-        const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-        const measuresPerLine = 2; // Reduced to 2 per line to give 16th notes enough space
-        const contentLines = Math.max(Math.ceil(measures.length / measuresPerLine), 0);
-        const totalLines = contentLines + extraStavesCount;
-        const mWidth = Math.floor((A4_WIDTH - 40) / measuresPerLine); 
-        
-        const calculatedHeight = Math.max(totalLines * 160 + 50, 200);
-        renderer.resize(A4_WIDTH, calculatedHeight);
-        const context = renderer.getContext();
-
-       for (let i = 0; i < contentLines; i++) {
-            const lineMeasures = measures.slice(i * measuresPerLine, (i + 1) * measuresPerLine);
-            const y = 20 + (i * 160);
-
-            // Calculate total "weight" for the line to distribute width proportionally
-            const lineWeight = lineMeasures.reduce((acc, m) => acc + Math.max(m.length, 8), 0);
-            let currentX = 20;
-
-            lineMeasures.forEach((mNotes, mIdx) => {
-                // Calculate dynamic width: high density measures get more pixels
-                const measureWeight = Math.max(mNotes.length, 8);
-                const dynamicWidth = Math.floor((measureWeight / lineWeight) * (A4_WIDTH - 40));
-                
-                const stave = new VF.Stave(currentX, y, dynamicWidth);
-                if (mIdx === 0) stave.addClef(clefValue).addKeySignature(keySig);
-                if (i === 0 && mIdx === 0) stave.addTimeSignature(timeSigStr);
-                stave.setContext(context).draw();
-                
-                const voice = new VF.Voice({ num_beats: numBeats, beat_value: beatValue }).setStrict(false);
-                voice.addTickables(mNotes);
-                
-                // Format with a specific width constraint to prevent overflow
-                const formatter = new VF.Formatter().joinVoices([voice]);
-                
-                // Determine justification: dense measures need more space
-                formatter.formatToStave([voice], stave);
-                
-                voice.draw(context, stave);
-                
-                if (document.getElementById('enableBeams').checked) {
-                    const beams = VF.Beam.generateBeams(mNotes);
-                    beams.forEach(b => b.setContext(context).draw());
-                }
-                
-                currentX += dynamicWidth; // Move X for the next measure on the same line
-            });
-        }
-
-            // Renderiza pentagramas vazios (extras ou se não houver notas)
-            const startEmptyAt = contentLines;
-            for (let i = startEmptyAt; i < totalLines; i++) {
-                const y = 20 + (i * 160);
-                const fullStave = new VF.Stave(20, y, A4_WIDTH - 40);
-                fullStave.addClef(clefValue).addKeySignature(keySig);
-                if (i === 0) fullStave.addTimeSignature(timeSigStr);
-                fullStave.setContext(context).draw();
-            }
-        }
-
-
-        const startBtn = document.getElementById('start-btn');
-const stopBtn = document.getElementById('stop-btn');
-const langBtn = document.getElementById('lang-toggle');
-const statusText = document.getElementById('status');
-const transcriptBox = document.getElementById('transcript-box');
-const notationArea = document.getElementById('notation');
-const voiceCopyBtn = document.getElementById('copy-to-notation'); // Renamed slightly to avoid conflict with copyCodeBtn
-
-let currentLang = 'en-US';
-let isRecognizing = false;
-
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SpeechRecognition) {
-    let recognition = new SpeechRecognition();
+    <h2 class="lecture-title">Aula: A Síntese do Espaço Comercial</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Harvard Architecture & Urban Design Perspective</p>
     
-    const setupRecognition = () => {
-        recognition.lang = currentLang;
-        recognition.continuous = true;
+    <p>Bem-vindos ao estúdio. Quando discutimos interiores comerciais neste nível, não estamos falando apenas de "decorar" uma loja; estamos discutindo a <strong>arquitetura da experiência</strong> e a <strong>mercantilização da atmosfera</strong>.</p>
+    
+    <p>Com base no texto que você forneceu, aqui está como decompomos esses conceitos através da ótica da teoria urbana e espacial avançada:</p>
 
-        recognition.onresult = (event) => {
-            const lastIndex = event.results.length - 1;
-            let text = event.results[lastIndex][0].transcript.toLowerCase().trim();
-            transcriptBox.innerText += (transcriptBox.innerText ? ", " : "") + text;
-        };
+    <div class="scroll-reveal point-card">
+        <h3>1. A Pluralidade de Contexto</h3>
+        <p>O texto destaca "diferentes realidades financeiras e conceituais". Na prática, isso significa que um projetista deve ser tão fluente em engenharia de valor para uma pop-up de uma startup quanto em luxo exclusivo para uma flagship na Quinta Avenida. Sua lógica de projeto deve ser elástica; o "conceito" não é uma estética estática, mas uma resposta a restrições econômicas específicas.</p>
+    </div>
 
-        recognition.onstart = () => { 
-            statusText.innerText = `🎤 Listening (${currentLang === 'en-US' ? 'English' : 'Português'})...`; 
-            startBtn.disabled = true; 
-            stopBtn.disabled = false;
-            isRecognizing = true;
-        };
+    <div class="scroll-reveal point-card">
+        <h3>2. O Projetista como Etnógrafo Cultural</h3>
+        <p>A menção à moda, música e gastronomia é crucial. Ensinamos que a arquitetura não existe no vácuo. Um espaço comercial é um barômetro cultural. Para projetar um restaurante de sucesso, você deve entender o ritual de jantar em 2026. Se você ignorar as tendências contemporâneas de "estilo de vida", seu espaço será semioticamente "mudo" para o público que pretende atrair.</p>
+    </div>
 
-        recognition.onend = () => { 
-            statusText.innerText = "Paused."; 
-            startBtn.disabled = false; 
-            stopBtn.disabled = true; 
-            isRecognizing = false;
-        };
-    };
+    <div class="scroll-reveal point-card">
+        <h3>3. Alinhamento Marca-Espaço</h3>
+        <p>Muitas vezes nos referimos a isso como <strong>Spatial Branding</strong>. A arquitetura deve agir como um manifesto físico da marca. Se a identidade da marca é "sustentabilidade", mas os materiais parecem sintéticos e a acústica é agressiva, ocorre uma dissonância cognitiva que repele o "cliente desejado".</p>
+    </div>
 
-    setupRecognition();
+    <div class="scroll-reveal point-card">
+        <h3>4. Orquestração Sensorial (A Harmonia Projetual)</h3>
+        <p>Esta é a parte mais sofisticada do seu texto. Vamos além do visual:</p>
+        <ul style="list-style: none; padding-left: 0;">
+            <li style="margin-bottom: 10px;"><strong>Visual:</strong> Teoria das cores e temperatura de cor da luz.</li>
+            <li style="margin-bottom: 10px;"><strong>Háptico:</strong> O toque e a sensação dos materiais (materialidade).</li>
+            <li style="margin-bottom: 10px;"><strong>Olfativo e Acústico:</strong> A arquitetura invisível — aromas e sons que desencadeiam respostas emocionais.</li>
+        </ul>
+    </div>
 
-    startBtn.onclick = () => recognition.start();
-    stopBtn.onclick = () => recognition.stop();
+    <h2>A Perspectiva de Harvard: Um Modelo para Análise</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Elemento</th>
+                <th>Aplicação Profissional</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Consciência de Tendências</strong></td>
+                <td>Analisar "Arte e Estilo de Vida" para prever o movimento futuro do consumidor.</td>
+            </tr>
+            <tr>
+                <td><strong>Perfil do Público-Alvo</strong></td>
+                <td>Garantir que o "Grupo Demográfico" sinta um senso de pertencimento na "Geografia".</td>
+            </tr>
+            <tr>
+                <td><strong>Materialidade</strong></td>
+                <td>Usar texturas físicas para comunicar os valores da marca (ex: pedra bruta para "honestidade").</td>
+            </tr>
+            <tr>
+                <td><strong>Harmonia</strong></td>
+                <td>A síntese de todos os 5 sentidos para criar uma "Obra de Arte Total" (Gesamtkunstwerk).</td>
+            </tr>
+        </tbody>
+    </table>
 
-    // Language Toggle Logic
-    langBtn.onclick = () => {
-        currentLang = currentLang === 'en-US' ? 'pt-BR' : 'en-US';
-        langBtn.innerText = currentLang === 'en-US' ? 'Language: EN' : 'Idioma: PT';
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> A arquitetura é o palco; a atividade comercial é a performance. Se o palco não estiver em harmonia com o roteiro (a marca), a performance falha.
+    </div>
+
+    <div class="question-box">
+        Como essa perspectiva se alinha com o projeto específico que você está analisando no momento?
+    </div>
+</div>
+
+
+    <div id="page2" class="page">
+    <header class="main-header">
+        <h1>Metodologia de Pesquisa: Estudos de Caso</h1>
+    </header>
+
+    <div class="intro-text">
+        Para conhecer o tipo de empreendimento que será projetado, você precisará fazer estudos de caso. Estes são feitos por meio de visitas a estabelecimentos semelhantes, para conhecer os fluxos, o tipo de produto comercializado e a forma de exposição, o público-alvo e o próprio empreendedor, aponta Farrelly (2014).
+    </div>
+
+    <h2 class="lecture-title">Aula Magna: A Etnografia do Espaço</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Análise Avançada de: <em>The Fundamentals of Interior Design</em> (Lorraine Farrelly)</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>A Investigação Empírica</h3>
+        <p>Farrelly propõe que o projeto não começa na prancheta, mas no "campo". O <strong>Estudo de Caso</strong> não é apenas uma busca por referências estéticas, mas uma análise técnica de <strong>fluxos operacionais</strong>. Como o corpo se move no espaço? Como o produto é tocado? A visita técnica transforma o arquiteto em um observador do comportamento humano.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 1: Contexto e Histórico</h3>
+        <p>A arquitetura comercial é o reflexo da evolução urbana. Farrelly argumenta que o "gênio do lugar" (Genius Loci) dita como o interior deve dialogar com a fachada. Em estudos de caso, analisamos se o estabelecimento respeita a malha urbana ou se propõe uma ruptura disruptiva. O contexto histórico do edifício influencia diretamente na escolha de técnicas de restauro ou retrofit comercial.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 2: Planejamento Espacial (Space Planning)</h3>
+        <p>Este é o núcleo do design comercial. Farrelly divide o espaço em <strong>zonas de transição</strong>, <strong>zonas de foco</strong> e <strong>zonas de serviço</strong>. 
+        <ul>
+            <li><strong>Mapeamento de Desejo:</strong> Onde o cliente para naturalmente? </li>
+            <li><strong>Ergonomia do Varejo:</strong> A altura das prateleiras e o ângulo de visão (eye-level is buy-level).</li>
+            <li><strong>Threshold Selection:</strong> A entrada do estabelecimento deve convidar ou filtrar?</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 3: Elementos Estruturais e Circulação</h3>
+        <p>O estudo de caso deve identificar como colunas, escadas e elevadores ditam o ritmo da circulação. Farrelly enfatiza que a circulação não é apenas um caminho, mas uma narrativa. Em ambientes comerciais, usamos a "fricção planejada" para desacelerar o cliente e aumentar o tempo de permanência.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 4: Luz e Cor como Ferramenta de Venda</h3>
+        <p>A luz não serve apenas para ver; ela serve para sentir. 
+        <ul>
+            <li><strong>Temperatura de Cor:</strong> 2700K para intimidade (luxo) vs 4000K para eficiência (fast-fashion).</li>
+            <li><strong>Sinalização Cromática:</strong> Cores que orientam o fluxo sem o uso de placas.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 5: Materiais e Sustentabilidade</h3>
+        <p>A escolha de materiais deve ser baseada no ciclo de vida. Farrelly destaca a importância da <strong>Materialidade Sensorial</strong>: o som do salto batendo no piso, o cheiro do couro, o calor da madeira. Em espaços de alto tráfego, a durabilidade deve encontrar a estética de marca.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Os Pilares da Análise de Farrelly</h3>
+        <p>Ao realizar seu estudo de caso, foque nestas três métricas fundamentais:</p>
+        <ul style="list-style: none; padding-left: 0;">
+            <li style="margin-bottom: 15px; border-left: 3px solid var(--accent); padding-left: 15px;"><strong>Fluxos:</strong> A logística invisível entre cliente, funcionário e mercadoria. Analise o "back-of-house" tanto quanto o "front-of-house".</li>
+            <li style="margin-bottom: 15px; border-left: 3px solid var(--accent); padding-left: 15px;"><strong>Exposição:</strong> A hierarquia visual que dita o desejo de compra. Como o design valoriza o produto?</li>
+            <li style="margin-bottom: 15px; border-left: 3px solid var(--accent); padding-left: 15px;"><strong>O Empreendedor:</strong> A compreensão da visão de negócio que deve ser traduzida em paredes e volumes. O design deve ser lucrativo.</li>
+        </ul>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 6: Apresentação e Comunicação Visual</h3>
+        <p>O projeto final deve comunicar o que foi aprendido no estudo de caso. Farrelly sugere o uso de diagramas de "bolhas" para explicar zoneamento e renderizações que foquem na atmosfera (mood) e não apenas na geometria. A comunicação técnica deve ser impecável para garantir a execução fiel da visão.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Segundo Farrelly, entender o "público-alvo" através de estudos de caso permite ao projetista antecipar o sucesso comercial. O design não é cosmético; é uma solução funcional para uma equação de mercado complexa. Se você não entende quem compra, você não sabe o que projetar.
+    </div>
+
+    <div class="question-box">
+        Como a análise de fluxos de um "estabelecimento semelhante" pode evitar erros ergonômicos no seu projeto atual?
+    </div>
+</div>
+
+<div id="page3" class="page">
+    <header class="main-header">
+        <h1>Page 3: Theory vs. Empirical Reality</h1>
+    </header>
+
+    <div class="intro-text">
+        While Farrelly (2014) provides a rigorous blueprint for "The Fundamentals," a critical paradox emerges when we step into the streets. We find a landscape of commercial spaces that thrive despite—or perhaps because of—their deviation from established architectural standards.
+    </div>
+
+    <h2 class="lecture-title">Lecture: The Architecture of the Informal</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Advanced Critique: Moving Beyond the Textbook</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. The "Non-Standard" Success</h3>
+        <p>In our daily practice, we encounter shops with congested flows, lighting that ignores CRI standards, and "improvised" material palettes. Yet, these spaces often possess a <strong>cultural authenticity</strong> that a perfectly "designed" space might lack. As architects, we must ask: Is Farrelly’s theory a ceiling or a floor? Are these establishments failing, or are they following a different, unwritten set of socio-economic rules?</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Economic Pragmatism vs. Academic Rigor</h3>
+        <p>Farrelly emphasizes the "Gesamtkunstwerk" (Total Work of Art). However, real-world retail architecture is often governed by <strong>Extreme Value Engineering</strong>. Many entrepreneurs prioritize immediate ROI over "sensorial harmony." This creates a tension where the architect must negotiate between Farrelly’s high-design principles and the client's budgetary limitations.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Spatial Adaptation and Resilience</h3>
+        <p>A significant number of establishments are "retrofitted" into buildings never intended for commerce. These spaces cannot meet the idealized flows of Farrelly’s Chapter 2. Instead, they exhibit <strong>spatial resilience</strong>—the ability of a brand to survive within awkward geometries through creative lighting and "hacking" the environment.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Professor's Insight:</strong> The true skill of a Master of Architecture is not just following Farrelly’s rules, but knowing how to break them with intent. Theory provides the grammar, but reality provides the vernacular. Do not be blinded by the "perfect project" on paper; study the "imperfect" successes in your city—they hold the secrets to real-world consumer psychology.
+    </div>
+
+    <div class="question-box">
+        Look at a local store that "breaks all the rules" of Farrelly. Why is it still in business? Is it the location, the product, or a different type of "invisible architecture"?
+    </div>
+</div>
+
+<div id="page4" class="page">
+    <header class="main-header">
+        <h1>Página 4: Verificação de Conhecimento</h1>
+    </header>
+
+   <div class="intro-text">
+        Agora que exploramos a teoria de Farrelly e o paradoxo da realidade profissional, vamos consolidar a classificação das tipologias comerciais.
+    </div>
+
+   <div class="scroll-reveal point-card" style="opacity: 1; transform: translateY(0);">
+        <form id="quizForm">
+
+        <div style="margin-bottom: 40px; border-bottom: 1px solid #eee; padding-bottom: 20px;">
+       <h3>Questão 1: Abrangência do Mercado</h3>
+        <p>De acordo com as definições contemporâneas e a prática projetual, em quais categorias a arquitetura comercial pode ser amplamente dividida?</p>
+     
+            <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                <input type="radio" name="q1" value="incorrect1"> Apenas lojas de varejo e centros de distribuição logística.
+            </label>
+            <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                <input type="radio" name="q1" value="correct"> Lojas, shopping centers, clínicas, bares, restaurantes e espaços de múltiplos usos.
+            </label>
+            <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                <input type="radio" name="q1" value="incorrect2"> Exclusivamente estabelecimentos de alimentação e entretenimento.
+            </label>
+            <label style="display: block; margin-bottom: 15px; cursor: pointer;">
+                <input type="radio" name="q1" value="incorrect3"> Residências com áreas de trabalho integradas (home office).
+            </label>
+               </div>
+          
+            <div style="margin-bottom: 40px; border-bottom: 1px solid #eee; padding-bottom: 20px;">
+                <h3>Questão 2: Espaços de Múltiplos Usos</h3>
+                <p>Qual é a característica definidora dos "espaços de múltiplos usos" na arquitetura moderna?</p>
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="q2" value="correct"> A integração de diferentes funções como trabalho, lazer e consumo.
+                </label>
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="q2" value="wrong"> O uso exclusivo de uma única marca no complexo.
+                </label>
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="q2" value="wrong"> Arquitetura que não permite alterações em seu layout.
+                </label>
+                <p><small><em>Dica: Considere a tendência de hibridização urbana e sustentabilidade.</em></small></p>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+                <h3>Questão 3: Clínicas e Consultórios</h3>
+                <p>Por que clínicas e consultórios são incluídos no escopo da arquitetura comercial?</p>
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="q3" value="wrong"> Porque possuem balcões de recepção similares a lojas.
+                </label>
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="q3" value="correct"> Porque oferecem serviços onde a experiência do cliente e a marca são fundamentais.
+                </label>
+                <label style="display: block; margin-bottom: 10px; cursor: pointer;">
+                    <input type="radio" name="q3" value="wrong"> Devido à obrigatoriedade de venderem produtos farmacêuticos.
+                </label>
+                <p><small><em>Dica: Lembre-se da importância do Spatial Branding no setor de serviços.</em></small></p>
+            </div>
+
+            <button type="button" onclick="checkFullQuiz()" style="background: var(--primary); color: white; border: none; padding: 15px 30px; cursor: pointer; border-radius: 4px; font-family: 'Inter'; font-weight: 600; width: 100%;">Verificar Todas as Respostas</button>
+        </form>
+
+        <div id="quiz-feedback" style="margin-top: 20px; padding: 20px; display: none; border-radius: 4px; line-height: 1.5;"></div>
+    </div>
+
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> A inclusão de "espaços de múltiplos usos" (mixed-use) reflete a necessidade urbana de 2026: otimização do solo e conveniência para o usuário. Como projetistas, devemos estar aptos a transitar entre a higiene de uma clínica e a atmosfera vibrante de um bar.
+ O design de saúde (Healthcare Design) utiliza estratégias comerciais para transmitir confiança e identidade visual.
+    </div>
+</div>
+
+
+<div id="page5" class="page">
+    <header class="main-header">
+        <h1>Page 5: The Systematic Interior</h1>
+    </header>
+
+    <div class="intro-text">
+        "Beyond the product itself, attention must be paid to the characteristics of what will be implemented or installed, such as the lighting fixtures and the illumination provided; the colors used in the background planes, such as walls, floors, and ceilings; and the colors of the inserted furniture elements, lounge areas, fitting rooms, checkout areas, and customer service points." (CHING; BINGGELI, 2019).
+    </div>
+
+    <h2 class="lecture-title">Masterclass: Interior Design Illustrated</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">
+        Source: <strong>Ching, F. D., & Binggeli, C. (2019). <em>Interior Design Illustrated</em>. John Wiley & Sons.</strong>
+    </p>
+
+    <div class="scroll-reveal point-card">
+        <h3>Chapter 1: Interior Space</h3>
+        <p>Ching establishes that interior design begins with the <strong>architectural shell</strong>. In a commercial context, we analyze the "volume" of the store. He teaches us to see the "void" as a positive element. When designing retail, the space between the racks is just as important as the racks themselves—this is the <em>path of least resistance</em> for the consumer.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Chapter 2: Design Vocabulary</h3>
+        <p>This chapter explores the "Elements and Principles" (Point, Line, Plane, Volume). For your store project, the <strong>Line</strong> is the customer's journey, and the <strong>Plane</strong> consists of the walls and floors mentioned in your text. Ching argues that these planes are the visual anchors that define the scale of the retail experience.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Chapter 3: Interior Design Programs</h3>
+        <p>Here, the authors focus on <strong>Functionality</strong>. In commercial architecture, this translates to the "Fitting Rooms" and "Checkout Areas" you highlighted. These are not just rooms; they are specific <em>behavioral zones</em> that require precise ergonomic planning to prevent psychological friction during the final stages of a purchase.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Chapter 4: Space Planning</h3>
+        <p>Ching and Binggeli discuss the <strong>Relationship between Spaces</strong>. In a store, the relationship between the "Lounge Area" and the "Display" determines the dwell time. A well-planned store uses circulation patterns (Loop, Grid, or Free-flow) to ensure the customer is exposed to the maximum amount of merchandise without feeling overwhelmed.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Chapter 5: Interior Environmental Systems</h3>
+        <p>This addresses your specific interest in <strong>Luminaires and Illumination</strong>. The authors categorize light into Ambient, Task, and Accent. In retail, light is a "merchandising tool." They discuss how HVAC and lighting must be integrated into the ceiling plane so as not to distract from the background colors and textures.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Chapter 6: Color and Materials</h3>
+        <p>The text mentions "background planes and furniture colors." Ching explains the <strong>Psychology of Color</strong>—how warm tones can stimulate appetite (restaurants) or how neutral tones allow product colors (clothing) to remain true. He emphasizes that material selection must balance aesthetics with the durability required for high-traffic commercial environments.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Professor's Closing Note:</strong> Ching & Binggeli’s approach is <em>holistic</em>. They remind us that an interior is not a collection of items, but a unified system. If the "fitting room" lighting is poor, the "background color" of the wall becomes irrelevant because the customer cannot see the product accurately. Every element must work in technical harmony.
+    </div>
+
+    <div class="question-box">
+        Reflecting on Chapter 5: How does your current lighting plan for the dressing rooms align with Ching's concept of "Atmospheric Illumination"?
+    </div>
+</div>
+
+<div id="page6" class="page">
+    <header class="main-header">
+        <h1>Página 6: Tipologias de Lojas</h1>
+    </header>
+<div class="intro-text">
+       As lojas são ambientes de comercialização de produtos, que podem ser das 
+mais variadas origens, como vestuário, alimentos, eletrônicos, cosméticos, 
+etc. O tipo de material a ser exposto vai determinar o modelo de expositores e 
+as suas dimensões, criando-se assim mobiliários e estruturas personalizadas.
+Pois determina não apenas o layout, mas a engenharia do mobiliário e a jornada do consumidor. O projeto arquitetônico deve ser um reflexo direto da mercadoria e o arquiteto atua como um estrategista, moldando o espaço para que a arquitetura se torne uma ferramenta silenciosa de venda e conforto.
+    </div>
+
+    <h2 class="lecture-title">Aula: Design Específico por Segmento</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">A Adaptação do Espaço ao Produto</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Vestuário (Fashion Retail)</h3>
+        <p>No varejo de moda, a arquitetura deve priorizar a <strong>experiência tátil e o caimento das peças</strong>. O projeto de interiores não é apenas estético; ele deve facilitar a fluidez do tráfego para aumentar o "dwell time" (tempo de permanência). O mobiliário, composto por araras, bustos e nichos, exige dimensões precisas: araras suspensas devem prever o vão livre para vestidos longos, enquanto prateleiras de dobra requerem profundidades entre 40cm e 60cm para evitar o amassamento têxtil. O uso de materiais como madeira e tecidos ajuda no conforto acústico, essencial para que o cliente se sinta à vontade durante a escolha.</p>
+        <ul>
+            <li><strong>Ponto Crítico:</strong> O provador é o momento da verdade. Estatisticamente, é onde a decisão de compra é finalizada. Além de dimensões generosas para o movimento de vestir (NBR 9050 para acessibilidade), a iluminação deve ser vertical e frontal, preferencialmente com um IRC > 85, para evitar sombras duras que desvalorizam o produto e a imagem do cliente no espelho (evitar sombras no rosto e corpo do cliente).</li>
+        </ul>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Alimentos (Food Retail)</h3>
+        <p>Projetar para o setor alimentício exige um equilíbrio rigoroso entre <strong>estética apetitosa e normas sanitárias</strong>. O layout deve favorecer um fluxo rápido e intuitivo, minimizando gargalos em áreas de pesagem ou caixas (o design é regido pela <strong>higienização e fluxo rápido</strong>). A escolha de materiais é técnica: superfícies devem ser laváveis, não porosas e resistentes à proliferação bacteriana. A psicologia das cores desempenha um papel fundamental aqui; tons terrosos e naturais evocam frescor e procedência orgânica, enquanto o design do mobiliário de exposição deve garantir a ventilação adequada para produtos perecíveis, integrando sistemas de refrigeração à marcenaria de forma invisível.  Materiais de acabamento devem ser não porosos (NBR 15527).</p>
+        <ul>
+           <li><strong>Ponto Crítico:</strong> A temperatura da cor da luz deve realçar o frescor (luzes quentes para pães, luzes frias/rosadas para carnes).</li> A iluminação técnica é o diferencial competitivo. Temperaturas de cor mais baixas (2700K a 3000K) são ideais para padarias, ressaltando o aspecto dourado dos pães. Já para açougues e peixarias, utiliza-se iluminação com espectros específicos que realçam os tons rosados e o brilho das escamas, sem acelerar a oxidação térmica dos alimentos.</li>
+        </ul>
+    </div>
+
+<div class="scroll-reveal point-card">
+        <h3>3. Eletrônicos (Tech Retail)</h3>
+        <p>Ambientes de alta tecnologia exigem <strong>flexibilidade e segurança</strong>. O mobiliário deve prever infraestrutura lógica (cabos de dados e energia) embutida.
+        <ul>
+            <li>Bancadas de experimentação (hands-on) que permitem ao usuário testar o produto antes da compra.</li>
+        </ul>
+        </p>
+        <p>O varejo tecnológico exige uma abordagem de <strong>design industrial e flexibilidade sistêmica</strong>. Como os produtos mudam rapidamente, o mobiliário deve ser modular. A infraestrutura é o maior desafio: balcões de exposição precisam de "shafts" internos para cabeamento de rede, alimentação elétrica e sistemas de segurança antifurto, sem que isso comprometa o visual clean. A atmosfera deve transmitir inovação, utilizando frequentemente materiais frios como metal, vidro e polímeros, contrastados com iluminação em LED linear para guiar o olhar para as especificações técnicas dos aparelhos.</p>
+        <ul>
+            <li><strong>Ponto Crítico:</strong> O conceito de "Try-before-you-buy" (experimentação). As bancadas de experiência devem ser ergonomicamente planejadas para diferentes alturas, permitindo que o usuário interaja com o software e o hardware de forma confortável. O design deve remover barreiras físicas entre o cliente e o gadget, criando uma sensação de posse imediata.</li>
+        </ul>
+    </div>
+
+<div class="scroll-reveal point-card">
+        <h3>4. Cosméticos (Beauty Retail)</h3>
+        <p>O foco é a <strong>fidelidade cromática</strong>. O design de interiores usa espelhos e superfícies reflexivas para ampliar o brilho dos produtos.
+        <ul>
+            <li>O IRC (Índice de Reprodução de Cor) deve ser superior a 90 para que a cor da maquiagem na pele corresponda à realidade.</li>
+        </ul>
+        </p>
+        <p>Este segmento opera no campo da <strong>autoestima e fidelidade cromática</strong>. O design de interiores deve ser imaculado, muitas vezes utilizando o branco ou tons neutros como "canvas" para que as cores das maquiagens se destaquem. Superfícies reflexivas e espelhos de alta qualidade são onipresentes, exigindo um projeto luminotécnico que elimine qualquer distorção de cor. O mobiliário de exposição (testers) precisa ser de fácil manutenção e limpeza constante, com nichos que organizam volumetrias pequenas de forma hierárquica, facilitando a visualização de batons, bases e sombras.</p>
+        <ul>
+            <li><strong>Ponto Crítico:</strong> A precisão do IRC (Índice de Reprodução de Cor). Em uma loja de cosméticos, qualquer valor abaixo de IRC 90 é inaceitável, pois alteraria o tom da base na pele do cliente, levando à insatisfação pós-compra. A iluminação de tarefa nos espelhos de maquiagem deve ser difusa para preencher as rugas de expressão e simular a luz do dia (luz neutra, aprox. 4000K).</li>
+        </ul>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Como arquitetos, não projetamos apenas "caixas" para guardar mercadorias. Projetamos o palco onde o produto é o protagonista. A falha técnica em um detalhe — como uma tomada mal posicionada em uma loja tech ou uma luz muito fria em uma boutique — pode destruir toda a estratégia de branding da marca. O detalhamento do mobiliário personalizado (millwork) é o que separa o amador do especialista em arquitetura comercial. Não projetamos uma "loja genérica". Projetamos um suporte para o produto. Um balcão de eletrônicos falha se não tiver passagens de cabos; uma loja de roupas falha se o provador for apertado demais para o movimento de vestir.
+    </div>
+
+    <div class="question-box">
+        Refletindo sobre as quatro tipologias: como a escolha da materialidade do piso pode influenciar a velocidade do fluxo do cliente em um supermercado versus uma boutique de luxo?
+    </div>
+</div>
+
+<div id="page7" class="page">
+    <header class="main-header">
+        <h1>Anatomia da Loja: Mobiliário e Atmosfera</h1>
+    </header>
+
+    <div class="intro-text">
+        Lojas são ambientes de comercialização de produtos, que podem ser das mais variadas origens, como vestuário, alimentos, eletrônicos, cosméticos, etc. O tipo de material a ser exposto vai determinar o modelo de expositores e as suas dimensões, criando-se assim mobiliários e estruturas personalizadas. Além do produto comercializado, deve-se atentar para características do que será implantado ou instalado, como as luminárias e a iluminação proporcionada; as cores utilizadas nos planos de fundo, como paredes, piso e teto; as cores dos elementos inseridos de mobiliários, espaços de estar, provadores, áreas de caixa e atendimento ao cliente (CHING; BINGGELI, 2019).
+    </div>
+
+    <h2 class="lecture-title">Aula: Design Sistêmico e Display</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Perspectiva Técnica: Ching & Binggeli (2019)</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. O Mobiliário como Suporte Narrativo</h3>
+        <p>Segundo Ching, o mobiliário não é meramente utilitário; ele é o <strong>organizador espacial</strong>. Em eletrônicos, o mobiliário deve ser robusto e técnico; em cosméticos, deve ser leve e iluminado de forma difusa. O design personalizado (millwork) permite que a arquitetura dite o percurso do usuário, transformando o "objeto de desejo" no ponto focal do campo visual.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Luminotécnica e a Norma NBR 8995-1</h3>
+        <p>Ching e Binggeli enfatizam que a luz define o volume. Para uma aplicação profissional de excelência, devemos integrar a <strong>NBR 8995-1</strong>:
+        <ul>
+            <li><strong>Fidelidade de Cor:</strong> Manter um IRC (Índice de Reprodução de Cor) > 80 é inegociável para vestuário e alimentos.</li>
+            <li><strong>Luminância:</strong> O contraste entre a iluminação geral (ambiente) e a iluminação de destaque (focal) cria a hierarquia visual necessária para o fechamento da venda.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Teoria do Plano de Fundo (Backdrop Theory)</h3>
+        <p>Paredes, pisos e tetos não são apenas superfícies; são o <strong>contexto cromático</strong> do produto. Se o plano de fundo compete visualmente com a mercadoria, ocorre o que chamamos de "ruído visual". Ching sugere que a materialidade do piso deve guiar o fluxo, enquanto o teto deve ocultar a infraestrutura para manter a "mágica" do espaço de vendas.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>4. Zonas de Interação Crítica</h3>
+        <p>O design deve ser impecável em pontos de fricção:
+        <ul>
+            <li><strong>Provadores:</strong> Devem possuir iluminação vertical para evitar sombras indesejadas no corpo do cliente.</li>
+            <li><strong>Área de Caixa:</strong> O "check-out" deve ser o ponto de descompressão, sinalizando o fim da jornada de compra de forma eficiente e confortável.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Ching e Binggeli nos lembram que a loja é um sistema vivo. Se a cor da parede "contamina" a cor do produto devido a uma má escolha de iluminação, o design falhou. A precisão técnica (NBR) deve caminhar junto com a sensibilidade estética.
+    </div>
+
+    <div class="question-box">
+        Como as dimensões do produto que você está estudando influenciaram o design do mobiliário personalizado em seu projeto atual?
+    </div>
+</div>
+
+<div id="page8" class="page">
+    <header class="main-header">
+        <h1>Página 8: Psicologia Ambiental e Sentidos</h1>
+    </header>
+
+    <div class="intro-text">
+        A sonorização e o aroma da loja também criam uma atmosfera de identidade ao local, pois atuam diretamente na psicologia do ambiente. Veja mais sobre a psicologia do ambiente no artigo <em>Transformação da psicologia ambiental nas pessoas através de um bom projeto arquitetônico, de design de interior e iluminação de uma cafeteria</em>, disponível no link a seguir.
+    </div>
+
+    <h2 class="lecture-title">Aula: A Arquitetura Invisível</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Neuromarketing e Percepção Espacial</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Paisagens Sonoras (Acoustic Landscapes)</h3>
+        <p>O som não é apenas "música de fundo". Ele dita o <strong>ritmo circadiano</strong> da loja. Batidas aceleradas aumentam o fluxo de clientes (ideal para fast-food), enquanto melodias suaves aumentam o "dwell time" (tempo de permanência), resultando em tickets médios mais altos em lojas de luxo. O design deve considerar a absorção acústica para evitar o eco, que gera ansiedade e fadiga sensorial.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. O Olfato como Memória Afetiva</h3>
+        <p>O sistema olfativo está diretamente ligado ao sistema límbico, responsável pelas emoções. O "Aroma Design" pode reduzir a percepção de tempo de espera em filas e criar uma <strong>assinatura olfativa</strong>. Em cafeterias, o aroma do café moído na hora é parte integrante do "projeto arquitetônico invisível", atraindo o público antes mesmo da entrada no estabelecimento.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Psicologia Ambiental: O Estudo de Caso da Cafeteria</h3>
+        <p>Conforme o artigo citado, a iluminação e o design de interiores em cafeterias transformam o estado emocional do usuário. 
+        <ul>
+            <li><strong>Biofilia e Conforto:</strong> O uso de texturas naturais e iluminação quente (2700K) reduz os níveis de cortisol.</li>
+            <li><strong>Privacidade Social:</strong> O layout de mesas deve permitir o equilíbrio entre a observação social e a intimidade acústica.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Como arquitetos, muitas vezes focamos no que os olhos veem (Ching & Binggeli), mas o sucesso de um PDV (Ponto de Venda) depende do que o corpo sente. Um projeto sem planejamento sensorial é um projeto mudo.
+    </div>
+
+    <div class="question-box">
+        Pense em uma cafeteria famosa: como o som das máquinas, o aroma do café e a luz focal se combinam para mudar o seu comportamento de consumo?
+   </div></div>
+ 
+<div id="page9" class="page">
+    <header class="main-header">
+        <h1>Página 9: Shopping Centers</h1>
+    </header>
+
+    <div class="intro-text">
+        Os shoppings são grandes edificações que concentram diferentes tipos de estabelecimentos comerciais, possibilitando que o consumidor transite em um ambiente único para satisfazer os seus desejos e necessidades de consumo. Nesses projetos, você deve considerar, além do que já leva em conta nos projetos de lojas, também a circulação interna e externa, os acessos à edificação e às lojas, e as estruturas de uso comum, como sanitários e áreas de convivência, e praças de alimentação (CHING; BINGGELI, 2019).
+    </div>
+
+    <h2 class="lecture-title">Aula: Macroarquitetura Comercial</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Complexidade Projetual e Fluxos de Massa</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Circulação: O Coração do Empreendimento</h3>
+        <p>Em um shopping, a circulação é o elemento ordenador. Segundo <strong>Ching & Binggeli</strong>, o arquiteto deve planejar não apenas o "passeio" do cliente, mas a eficiência dos acessos. Isso inclui a transição entre o estacionamento (circulação externa) e os "malls" (circulação interna), garantindo que os fluxos de pedestres e de serviço (docas) nunca se cruzem de forma conflitante.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Acessibilidade e NBR 9050</h3>
+        <p>A escala do shopping exige rigor absoluto com a <strong>NBR 9050</strong>. Os acessos devem ser universais, com sinalização tátil e visual clara. As distâncias de caminhada até os sanitários e elevadores devem respeitar os limites de fadiga do usuário, garantindo que o ambiente seja inclusivo e funcional para todos os perfis demográficos.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Estruturas de Uso Comum e Praças de Alimentação</h3>
+        <p>As áreas de convivência e praças de alimentação são os "pontos de ancoragem" que sustentam o <strong>dwell time</strong>. 
+        <ul>
+            <li><strong>Sanitários:</strong> Devem ser localizados estrategicamente para não ocupar fachadas nobres, mas manter fácil identificação.</li>
+            <li><strong>Convivência:</strong> Espaços que oferecem conforto térmico e acústico, servindo como áreas de descompressão psicológica no meio do ambiente de consumo.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Projetar um shopping é projetar uma "micro-cidade". A harmonia entre os interesses privados (lojas satélites e âncoras) e os espaços públicos (corredores e praças) é o que define o sucesso econômico e social do empreendimento.
+    </div>
+
+    <div class="question-box">
+        Considerando a circulação externa: Como o design da fachada e dos portais de entrada influencia a transição psicológica do cliente do ambiente urbano para o ambiente controlado do shopping?
+    </div>
+</div>
+
+<div id="page10" class="page">
+    <header class="main-header">
+        <h1>Página 10: Shopping Centers como Centros de Convivência</h1>
+    </header>
+
+    <div class="intro-text">
+        A Associação Brasileira de Shopping Centers (ABRASCE), em pesquisa no setor comercial realizada entre os anos de 2017 e 2018, apontou a tendência dos shopping centers brasileiros de estarem se transformando em grandes centros comerciais, com hospitais e consultórios, faculdades e universidades, hotéis e até mesmo condomínios residenciais (ABRASCE, 2018).
+    </div>
+
+    <h2 class="lecture-title">Aula: A Hibridização do Espaço Comercial</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Tendências Pós-Varejo e Urbanismo Integrado</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. O Conceito de "Lifestyle Centers"</h3>
+        <p>A transição citada pela <strong>ABRASCE</strong> reflete uma mudança de paradigma: o shopping deixa de ser um "templo do consumo" isolado para se tornar um <em>Lifecenter</em>. Na arquitetura contemporânea, isso significa criar espaços com maior <strong>porosidade urbana</strong>. A integração de faculdades e hospitais garante um fluxo constante de usuários (estudantes, pacientes, profissionais), diluindo os picos de movimento que antes se restringiam aos finais de semana e horários noturnos.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Sinergia Programática: Saúde e Educação</h3>
+        <p>A inclusão de clínicas e universidades dentro do perímetro comercial otimiza a infraestrutura de estacionamento e segurança. Para o arquiteto, o desafio é o <strong>Gerenciamento de Fluxos</strong>: como separar o trajeto de um paciente em direção a um hospital do fluxo de um cliente em busca de lazer, mantendo a unidade estética do complexo? O <em>Spatial Branding</em> deve ser adaptável o suficiente para acolher identidades institucionais (escolas) e comerciais (lojas) sob a mesma cobertura.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Adensamento e Uso Residencial</h3>
+        <p>A presença de condomínios residenciais conectados aos shoppings é a materialização da "Cidade de 15 Minutos". Essa tendência reduz a dependência de veículos e valoriza o m² do empreendimento. O shopping passa a atuar como o "pátio" da residência, oferecendo conveniência imediata. Tecnicamente, isso exige soluções complexas de <strong>isolamento acústico</strong> e acessos controlados para garantir a privacidade dos moradores sem isolá-los da conveniência comercial.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> A citação da ABRASCE de 2018 foi premonitória. Hoje, em 2026, vemos que shoppings que não se diversificaram enfrentam obsolescência. O arquiteto moderno não projeta apenas lojas; ele projeta ecossistemas urbanos onde o comércio é apenas a âncora de uma vida social muito mais ampla.
+    </div>
+
+    <div class="question-box">
+        <strong>Fonte Consultada:</strong> ABRASCE. <em>Censo Brasileiro de Shopping Centers 2017-2018</em>. São Paulo: Associação Brasileira de Shopping Centers, 2018.<br><br>
+        Reflexão: Em sua cidade, você já percebeu essa integração de hospitais ou faculdades dentro de shoppings? Como isso alterou sua percepção sobre aquele espaço?
+    </div>
+</div>
+
+<div id="page11" class="page">
+    <header class="main-header">
+        <h1>Página 11: Do Ágora ao "Third Place" Global</h1>
+    </header>
+
+    <div class="intro-text">
+        A história dos shopping centers não começa no subúrbio americano, mas nos mercados públicos da Antiguidade. De Trajano em Roma aos Souqs do Oriente Médio, a necessidade humana de concentrar trocas em um ambiente controlado moldou a arquitetura das cidades. Hoje, o design comercial é, acima de tudo, uma resposta ao clima e à paisagem local.
+    </div>
+
+    <h2 class="lecture-title">Aula: Arquitetura em Condições Extremas</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Do Deserto ao Ártico: O Shopping como Abrigo Urbano</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Raízes Históricas: O Surgimento do Espaço Protegido</h3>
+        <p>A gênese do shopping center moderno remete ao <strong>Trajan's Market</strong> (100-110 d.C.), considerado o primeiro complexo comercial multinível. No século XV, o <strong>Grand Bazaar de Istambul</strong> consolidou a ideia de ruas cobertas e segurança centralizada. No entanto, o "Shopping Center" como conhecemos hoje foi formalizado por Victor Gruen em 1956 (Southdale Center, EUA), introduzindo o ambiente fechado e climatizado para isolar o consumidor das intempéries externas.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Arquitetura no Deserto (Ex: Dubai e Irã)</h3>
+        <p>Em regiões áridas, o shopping atua como um <strong>oásis tecnológico</strong>. O desafio é mitigar a radiação solar extrema. 
+        <ul>
+            <li><strong>Estratégia:</strong> Uso de fachadas de alta inércia térmica e ventilação passiva inspirada em "Windcatchers" (torres de vento). </li>
+            <li><strong>Tendência:</strong> Projetos como o <em>The Beach</em> em Dubai utilizam massas construídas para canalizar brisas marítimas e criar sombreamento estratégico, permitindo o varejo ao ar livre mesmo sob altas temperaturas.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Arquitetura na Neve (Ex: Canadá e Japão)</h3>
+        <p>Em climas frios, o shopping evolui para o conceito de <strong>Cidade Subterrânea</strong> ou "Underground Urbanism". 
+        <ul>
+            <li><strong>Canadá (PATH, Toronto):</strong> O maior complexo comercial subterrâneo do mundo conecta torres de escritórios e shoppings, permitindo que a vida urbana continue a -20°C sem exposição ao vento.</li>
+            <li><strong>Japão (Sapporo):</strong> Shoppings com telhados retráteis ou cúpulas de vidro triplo que captam a luz solar escassa durante o inverno, transformando o espaço comercial em um jardim botânico interno aquecido.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> O shopping center é o "termômetro" da resiliência de um país. No deserto, ele é o refúgio contra o calor; na neve, é o refúgio contra o gelo. O arquiteto deve entender que o <strong>Envelope Térmico</strong> da edificação é o que garante que a experiência de consumo não seja interrompida pela natureza.
+    </div>
+
+    <div class="question-box">
+        <strong>Estudo de Caso:</strong> Compare a entrada de um shopping em Toronto com um em Abu Dhabi. Quais diferenças você esperaria encontrar no sistema de vedação (portas) e na transição de temperatura?
+    </div>
+</div>
+
+<div id="page12" class="page">
+    <header class="main-header">
+        <h1>Page 12: The Global Evolution & The Canadian Blueprint</h1>
+    </header>
+
+    <div class="intro-text">
+        The history of the shopping center is a narrative of environmental control. From the Roman Agora to the Middle Eastern Souqs, humanity has always sought to concentrate trade within a protected envelope. However, while the American mall was often an aesthetic choice, the Canadian shopping center was a technical necessity—a "survivalist" architecture born from the subarctic freeze.
+    </div>
+
+    <h2 class="lecture-title">Lecture: Climatological Determinism</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Thermal Envelopes, Snow Loads, and the Internalized City</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Historical Genealogy: From Trajan to Gruen</h3>
+        <p>The modern shopping center is the descendant of the <strong>Trajan's Market</strong> (110 AD) and the <strong>Grand Bazaar of Istanbul</strong>. These early models established the concept of secure, multi-level trade. However, the 1956 Southdale Center (by Victor Gruen) introduced the fully enclosed, air-conditioned model to solve the "sprawl" of the American suburb. Gruen's original intent was the creation of a <em>Third Place</em>—a social hub that functioned as a surrogate "downtown" for a car-dependent society.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. The Canadian "Freeze" and Defensive Architecture</h3>
+        <p>In Canada, the climate was a decisive architect. Centers like <strong>Yorkdale (1964)</strong> had to be enclosed decades before global trends because the environment was life-threatening for 5 months a year. 
+        <ul>
+            <li><strong>The "Inward" Pivot:</strong> Canadian malls pioneered the internalized street, where the building turns its back on the city to protect the interior micro-climate.</li>
+            <li><strong>PATH (Toronto):</strong> This evolved into "Underground Urbanism," a 30km subterranean network that connects retail, transit, and offices, allowing the city to function at -20°C.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Technical Challenges: Thermal Loads & Structural Integrity</h3>
+        <p>Architects in freezing climates face a unique <strong>Thermal Paradox</strong>. While it is freezing outside, the presence of thousands of shoppers and high-output lighting creates an excess of internal heat. 
+        <ul>
+            <li><strong>Heat Recovery:</strong> Canadian malls were early adopters of heat-recovery systems that harvest the "waste heat" from shop floors to warm the massive central atriums.</li>
+            <li><strong>Snow Load Engineering:</strong> Roofs must be designed to withstand metric tons of snow accumulation. This led to the development of reinforced long-span steel trusses and sophisticated roof drainage systems that prevent ice-damming, a technology now used in stadiums globally.</li>
+            <li><strong>The Vestibule (Air-Lock):</strong> The "double-door" entry system started here to prevent massive pressure drops and heat loss during entry/exit cycles.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>4. Contemporary Issue: The Exported "Closed Box"</h3>
+        <p>A critical modern issue is the blind adoption of the "Canadian Model" in tropical climates like Brazil or SE Asia. In the North, the enclosure <em>saves</em> energy by retaining heat; in the tropics, the same enclosure <em>wastes</em> energy by requiring massive HVAC cooling to fight solar gain. We are now seeing a shift back toward <strong>Porosity</strong>—using "Windcatchers" and passive shading (as seen in Dubai) to replace the high-energy Canadian box with sustainable semi-outdoor spaces.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Professor's Note:</strong> The enclosed mall is a machine designed for the North. When we build it in the South, we are fighting the sun with electricity. As architects, your challenge is to take the <strong>density</strong> and <strong>connectivity</strong> of the Canadian model but marry it to the <strong>passive cooling</strong> of the desert. The future is not a closed box, but a breathable urban lung.
+    </div>
+
+    <div class="question-box">
+        <strong>Critical Analysis:</strong> Given the high energy cost of maintaining a "Canadian-style" closed box in a tropical country, how would you redesign a shopping center facade in Brazil to provide the same thermal comfort without 24/7 air conditioning?
+    </div>
+</div>
+
+<div id="page13" class="page">
+    <header class="main-header">
+        <h1>Página 13: Clínicas no Contexto Comercial</h1>
+    </header>
+
+    <div class="intro-text">
+        As áreas destinadas às clínicas se caracterizam como comerciais, pois também são locais de atendimento ao público e comercialização de serviços. As clínicas podem ser médicas, odontológicas, fisioterápicas, estéticas ou de atendimento aos “pets”, entre outras. Em virtude do crescimento da preocupação com prevenção e cuidados pessoais, esta é uma área que vem ganhando bastante evidência nos últimos anos (CHING; BINGGELI, 2019).
+    </div>
+
+    <h2 class="lecture-title">Aula: Design Hospitalar e Bem-Estar</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Especificidades Técnicas e Humanização do Espaço</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Zoneamento e Fluxos (Front-end vs. Back-end)</h3>
+        <p>Diferente de uma loja de varejo comum, a clínica exige uma separação rigorosa de fluxos. O <strong>Front-end</strong> (recepção e espera) deve focar no conforto e branding, enquanto o <strong>Back-end</strong> (salas de exame, esterilização e áreas técnicas) deve priorizar a assepsia e a funcionalidade. Segundo <strong>Ching & Binggeli</strong>, o layout deve minimizar o cruzamento entre pacientes que chegam e pacientes em recuperação ou materiais contaminados.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Ergonomia e Normativas Sanitárias (ANVISA)</h3>
+        <p>No Brasil, o projeto de clínicas é regido pela <strong>RDC 50 da ANVISA</strong>, que dita dimensões mínimas e acabamentos.
+        <ul>
+            <li><strong>Revestimentos:</strong> Devem ser monolíticos e laváveis, evitando juntas onde bactérias possam se proliferar.</li>
+            <li><strong>Acessibilidade:</strong> A <strong>NBR 9050</strong> é mandatória. Portas de consultórios devem permitir a passagem de macas ou cadeiras de rodas (mínimo 0,80m a 0,90m de vão livre), e sanitários para PCD devem estar distribuídos estrategicamente.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Design Biofílico e Psicologia das Cores</h3>
+        <p>Como clínicas lidam com a vulnerabilidade humana, o uso de <strong>Design Biofílico</strong> (plantas, luz natural e materiais que remetem à natureza) ajuda a reduzir o cortisol e a ansiedade. Na arquitetura comercial de estética ou odontologia, a iluminação deve ser equilibrada: luz quente na recepção para acolhimento e luz fria (foco técnico) com alto <strong>IRC (Índice de Reprodução de Cor)</strong> dentro do consultório para procedimentos precisos.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> O setor de clínicas é resiliente. Em shoppings, elas servem como "âncoras de serviço", atraindo um público que obrigatoriamente passará tempo no local. Ao projetar para pets ou humanos, lembre-se: a arquitetura é o primeiro passo do tratamento. Um ambiente confuso gera estresse; um ambiente claro gera confiança.
+    </div>
+
+    <div class="question-box">
+        <strong>Desafio Projetual:</strong> Em uma clínica veterinária, quais materiais de piso você escolheria para garantir a assepsia, mas evitar que os animais escorreguem e se lesionem? Como equilibrar a facilidade de limpeza com a segurança física?
+    </div>
+</div>
+
+<div id="page14" class="page">
+    <header class="main-header">
+        <h1>Página 14: O Design como Indutor de Comportamento - "Bares e restaurantes"</h1>
+    </header>
+
+    <div class="intro-text">
+        Na arquitetura gastronômica, o mobiliário e a cor não são apenas escolhas estéticas; são ferramentas de gestão operacional. O design dita o ritmo do consumo, transformando o espaço físico em um regulador de tempo e lucratividade.
+   <p>Esses estabelecimentos comerciais atendem a públicos diversifi cados. Bares 
+e quiosques normalmente possuem públicos maiores, em função da rotativi-
+dade de pessoas, assim como as lanchonetes. Os restaurantes, por sua vez, 
+atendem a públicos de maior permanência e, portanto, têm menor rotatividade. 
+Além disso, as cozinhas de restaurantes apresentam maiores exigências, por 
+precisarem de espaços de armazenagem seca e fria, e áreas de preparo, de 
+higienização e de atendimento. Esses locais também devem, assim como as 
+clínicas, atender às normas da Vigilância Sanitária e das regulamentações dos 
+órgãos de saúde municipal, estadual e federal.</p>
+ </div>
+
+    <h2 class="lecture-title">Aula: Rotatividade vs. Permanência</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">A Engenharia do Conforto e a Logística de Cozinha</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Mobiliário e a "Arquitetura da Pressa"</h3>
+        <p>O conceito de <strong>Fast Food</strong> utiliza o mobiliário como um filtro de permanência. Cadeiras de polipropileno rígido, assentos sem encosto e superfícies frias são projetados para se tornarem desconfortáveis após 20 ou 30 minutos. 
+        <ul>
+            <li><strong>Cromatismo Vibrante:</strong> O uso de cores quentes (vermelho, amarelo, laranja) acelera o metabolismo e a pulsação, incentivando o cliente a comer mais rápido e liberar a mesa para o próximo ciclo de venda.</li>
+            <li><strong>Rotatividade (Turnover):</strong> Em bares e quiosques, essa dinâmica é essencial para suportar grandes volumes de público em horários de pico.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. O Refúgio Gastronômico: Design de Longa Permanência</h3>
+        <p>Restaurantes sofisticados operam na lógica inversa. O objetivo é o <strong>Upselling</strong>: quanto mais tempo o cliente permanece, maior a probabilidade de consumo de entradas, vinhos e sobremesas.
+        <ul>
+            <li><strong>Ergonomia e Textura:</strong> Cadeiras estofadas, tecidos aveludados e iluminação dimerizada (baixa intensidade) criam um senso de proteção e relaxamento.</li>
+            <li><strong>Marketing Olfativo e Acústica:</strong> Aromas suaves e som ambiente controlado mascaram o ruído da cozinha, estendendo a percepção de tempo e aumentando o ticket médio.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Complexidade Oculta: A Cozinha Profissional</h3>
+        <p>Enquanto o salão foca no cliente, a cozinha é uma <strong>máquina de produção</strong> que deve atender a normas rigorosas (Vigilância Sanitária). 
+        <ul>
+            <li><strong>Zoneamento Técnico:</strong> Diferente de bares, o restaurante exige áreas de armazenagem seca (estoque) e fria (câmaras) separadas para evitar a contaminação cruzada.</li>
+            <li><strong>Fluxo de Atendimento:</strong> O design deve garantir que o prato pronto nunca cruze o caminho do lixo ou da louça suja, garantindo a assepsia exigida pelos órgãos municipais e federais.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Ao projetar, pergunte-se: "Qual o lucro por minuto desta mesa?". Se o projeto é para uma lanchonete de terminal rodoviário, o conforto é um erro estratégico. Se é para um bistrô francês, a pressa é o seu inimigo. A arquitetura comercial é a materialização do plano de negócios do cliente.
+    </div>
+
+    <div class="question-box">
+        <strong>Estudo de Reflexão:</strong> Como você aplicaria a NBR 9050 (Acessibilidade) em um restaurante sofisticado sem comprometer a "atmosfera de exclusividade" e o conforto acústico do local?
+    </div>
+</div>
+
+<div id="page15" class="page">
+    <header class="main-header">
+        <h1>Página 15: Quiz de Avaliação Técnica</h1>
+    </header>
+
+    <div class="intro-text">
+        Teste seus conhecimentos sobre a macroarquitetura de bares e restaurantes. Lembre-se: a eficiência de um projeto comercial gastronômico reside no equilíbrio entre a experiência do cliente e a logística invisível da cozinha.
+    </div>
+
+    <div id="quiz-container" style="margin-top: 30px;">
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>1. Qual a principal diferença de público entre bares e restaurantes segundo a literatura técnica?</strong></p>
+            <label><input type="radio" name="q1" value="wrong"> Bares têm maior permanência e menor rotatividade.</label><br>
+            <label><input type="radio" name="q1" value="correct"> Bares têm maior rotatividade e públicos diversificados.</label><br>
+            <label><input type="radio" name="q1" value="wrong"> Restaurantes atendem exclusivamente públicos de passagem rápida.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>2. Em termos de infraestrutura, por que as cozinhas de restaurantes são mais complexas?</strong></p>
+            <label><input type="radio" name="q2" value="wrong"> Elas exigem apenas áreas de atendimento e higienização.</label><br>
+            <label><input type="radio" name="q2" value="correct"> Exigem áreas de armazenagem seca, fria, preparo e higienização separadas.</label><br>
+            <label><input type="radio" name="q2" value="wrong"> O foco é apenas na estética da área de consumo (salão).</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>3. Estabelecimentos como quiosques e lanchonetes assemelham-se aos bares em qual aspecto?</strong></p>
+            <label><input type="radio" name="q3" value="correct"> Na alta rotatividade de pessoas e fluxos dinâmicos.</label><br>
+            <label><input type="radio" name="q3" value="wrong"> No longo tempo de permanência do cliente à mesa.</label><br>
+            <label><input type="radio" name="q3" value="wrong"> Na baixa exigência de normas da Vigilância Sanitária.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>4. Qual órgão regula as normas de higiene e segurança para cozinhas comerciais no Brasil?</strong></p>
+            <label><input type="radio" name="q4" value="wrong"> Apenas a prefeitura municipal.</label><br>
+            <label><input type="radio" name="q4" value="correct"> Vigilância Sanitária (ANVISA) e órgãos de saúde nas três esferas.</label><br>
+            <label><input type="radio" name="q4" value="wrong"> Exclusivamente o corpo de bombeiros.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>5. A "Permanência" em um restaurante impacta o projeto através de:</strong></p>
+            <label><input type="radio" name="q5" value="correct"> Maior investimento em conforto acústico, térmico e ergonomia de mobiliário.</label><br>
+            <label><input type="radio" name="q5" value="wrong"> Redução do espaço entre mesas para maximizar o lucro.</label><br>
+            <label><input type="radio" name="q5" value="wrong"> Uso de cores vibrantes para incentivar o cliente a sair rápido.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>6. O que caracteriza a "Armazenagem Fria" em um restaurante de grande porte?</strong></p>
+            <label><input type="radio" name="q6" value="wrong"> Apenas geladeiras domésticas comuns.</label><br>
+            <label><input type="radio" name="q6" value="correct"> Câmaras frigoríficas separadas por tipo de insumo (carnes, vegetais, etc.).</label><br>
+            <label><input type="radio" name="q6" value="wrong"> Prateleiras abertas na área de preparo.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>7. No design de bares, o balcão serve como:</strong></p>
+            <label><input type="radio" name="q7" value="correct"> Elemento ordenador de fluxo e catalisador de rotatividade rápida.</label><br>
+            <label><input type="radio" name="q7" value="wrong"> Local para refeições de três pratos com permanência de 2 horas.</label><br>
+            <label><input type="radio" name="q7" value="wrong"> Área exclusiva para armazenamento de louça suja.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>8. A conformidade com a NBR 9050 em restaurantes exige:</strong></p>
+            <label><input type="radio" name="q8" value="wrong"> Apenas rampas na entrada.</label><br>
+            <label><input type="radio" name="q8" value="correct"> Circulação entre mesas adequada, balcões acessíveis e sanitários PCD.</label><br>
+            <label><input type="radio" name="q8" value="wrong"> Que todas as mesas sejam fixas no chão.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>9. Por que a separação de "fluxos sujos" e "fluxos limpos" é vital na cozinha?</strong></p>
+            <label><input type="radio" name="q9" value="correct"> Para evitar a contaminação cruzada de alimentos, conforme normas sanitárias.</label><br>
+            <label><input type="radio" name="q9" value="wrong"> Apenas por estética visual para o chef de cozinha.</label><br>
+            <label><input type="radio" name="q9" value="wrong"> Para diminuir o número de funcionários necessários.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>10. Qual a função da "Área de Atendimento" na cozinha de um restaurante?</strong></p>
+            <label><input type="radio" name="q10" value="wrong"> É onde o cliente senta para comer.</label><br>
+            <label><input type="radio" name="q10" value="correct"> Interface de transição entre a produção (cozinha) e o salão (garçons).</label><br>
+            <label><input type="radio" name="q10" value="wrong"> Local destinado apenas ao descanso dos funcionários.</label>
+        </div>
+
+        <button class="nav-btn" onclick="checkFinalQuiz()" style="width: 100%; margin-top: 20px; background: var(--accent); color: white; border: none; padding: 15px;">Finalizar Quiz</button>
         
-        if (isRecognizing) {
-            recognition.stop();
-            setTimeout(() => {
-                setupRecognition();
-                recognition.start();
-            }, 400); // Short delay to allow the engine to reset
-        } else {
-            setupRecognition();
-        }
-    };
+        <div id="final-feedback" class="question-box" style="display:none; margin-top: 20px;"></div>
+    </div>
+</div>
 
-    voiceCopyBtn.onclick = () => {
-        notationArea.value += (notationArea.value ? ", " : "") + transcriptBox.innerText;
-        transcriptBox.innerText = "";
-        renderPreview();
-        renderFinal();
-        updateLibraryCode();
-    };
-} else {
-    statusText.innerText = "Speech Recognition not supported.";
-}
+<div id="page16" class="page">
+    <header class="main-header">
+        <h1>Página 16: Usuários Diferentes, Respostas Opostas</h1>
+    </header>
+
+    <div class="intro-text">
+        Dizer que um projeto é "um restaurante" é uma generalização perigosa. A arquitetura comercial moderna exige uma dissecação do <strong>Usuário Típico</strong>. Dois estabelecimentos que servem o mesmo tipo de alimento podem exigir linguagens arquitetônicas diametralmente opostas para sobreviverem no mercado.
+    </div>
+
+    <h2 class="lecture-title">Aula: Antropometria Social e Espacial</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">O Caso dos Dois Restaurantes: Uma Análise Comparativa</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Cenário A: O Restaurante de Fluxo Eficiente (Fast-Casual)</h3>
+        <p>Imagine um restaurante localizado em um centro empresarial. Seu usuário típico é o <strong>trabalhador em horário de almoço</strong>, que dispõe de 45 a 60 minutos.
+        <ul>
+            <li><strong>Resposta Arquitetônica:</strong> Prioriza a <em>Linearidade</em>. O layout deve ser intuitivo, com uma linha de visão clara do pedido ao pagamento.</li>
+            <li><strong>Mobiliário:</strong> Materiais de alta durabilidade e fácil higienização (aço inox, polímeros). O conforto é calculado para uma permanência curta, evitando o "congestionamento" de mesas.</li>
+            <li><strong>Acústica:</strong> Ambientes propositalmente mais ruidosos que incentivam o foco na refeição e a saída rápida.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Cenário B: O Restaurante de Experiência Imersiva (Fine Dining)</h3>
+        <p>Agora, imagine um restaurante que atende <strong>casais ou grupos em celebração</strong>. O usuário busca <em>status</em>, conforto e desconexão do mundo exterior.
+        <ul>
+            <li><strong>Resposta Arquitetônica:</strong> Prioriza a <em>Fragmentação</em>. O uso de biombos, níveis de piso diferentes ou nichos cria "micro-ambientes" de privacidade.</li>
+            <li><strong>Mobiliário:</strong> Superfícies táteis, tecidos pesados (veludo, linho) e ergonomia voltada para o relaxamento total. O objetivo é que o usuário esqueça o tempo.</li>
+            <li><strong>Iluminação:</strong> Focada e dramática, com alto contraste. A luz atua para "isolar" cada mesa em sua própria bolha de experiência.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. A Semiótica do Espaço</h3>
+        <p>O arquiteto atua como um tradutor de expectativas. 
+        <ul>
+            <li><strong>Sinalização Visual:</strong> No cenário A, a sinalização é gráfica, grande e direta. No cenário B, a sinalização é sutil, quase invisível, muitas vezes substituída pelo atendimento personalizado.</li>
+            <li><strong>Zonas de Espera:</strong> Enquanto no Restaurante A a espera é externa ou em filas, no Restaurante B a espera é uma área de bar luxuosa, projetada para gerar faturamento antes mesmo da refeição começar.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Identificar o usuário típico é a primeira ferramenta de <strong>Zoneamento</strong>. No Cenário A, a cozinha ocupa um espaço proporcionalmente menor e foca na rapidez de saída. No Cenário B, a cozinha é uma oficina de precisão. O arquiteto que ignora o público-alvo condena o proprietário a um espaço que afasta o cliente certo ou atrai o cliente errado.
+    </div>
+
+    <div class="question-box">
+        <strong>Estudo de Caso Mental:</strong> Se você fosse projetar uma pizzaria para uma vizinhança familiar vs. uma pizzaria de "balada" para jovens no centro, como a altura do balcão e a intensidade da música mudariam entre os dois projetos?
+    </div>
+</div>
+
+<div id="page17" class="page">
+    <header class="main-header">
+        <h1>Página 17: Espaços Multiuso e a Economia do Compartilhamento</h1>
+    </header>
+
+    <div class="intro-text">
+        O hibridismo espacial é a resposta da arquitetura contemporânea à escassez de espaço e à necessidade de otimização financeira. Hoje, o design comercial transcende a função única, fundindo tipologias para criar ecossistemas urbanos autossuficientes e reduzir custos de implantação.
+   <p> Uma nova tendência é o compartilhamento, seja de objetos, roupas ou mesmo 
+dos espaços. Essa tendência é mundial e vem ao encontro do aproveitamento 
+máximo de objetos e locais, sendo refl etido nos ambientes e reduzindo o custo 
+de implantação.</p><p> Como reflexo na arquitetura de interiores comercial, hoje ouvimos falar 
+frequentemente em coworking, barbearias com espaços de jogos e bar, salões de 
+beleza com lojas de roupas, cafeterias com livrarias, entre outros usos múltiplos 
+de espaços. Outra demonstração é o surgimento dos shoppings que possuem 
+centros comerciais e mesmo residenciais acoplados a eles, transformando-se 
+em grandes unidades de vizinhanças e concentrando as atividades de moradia, 
+trabalho, circulação e lazer em um único empreendimento, o que contraria as 
+leis do urbanismo moderno.</p>
+</div>
+
+    <h2 class="lecture-title">Aula: Programação Híbrida e Micro-Urbanismo</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Do Coworking aos Complexos "Live-Work-Play"</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. A Fusão de Tipologias (Retail Hybrids)</h3>
+        <p>A tendência do compartilhamento transformou o varejo em uma experiência multifacetada. A barbearia que abriga um bar, ou a cafeteria integrada a uma livraria, utiliza a <strong>Arquitetura de Transição</strong> para aumentar o tempo de permanência do cliente e diversificar as fontes de receita.
+        <ul>
+            <li><strong>Desafio Técnico:</strong> O projeto deve prever infraestruturas hidráulicas e elétricas distintas para funções opostas (ex: área úmida de um salão de beleza adjacente à área seca de uma loja de roupas).</li>
+            <li><strong>Sinergia de Fluxos:</strong> O layout deve permitir que um serviço atraia o cliente para o outro sem gerar conflitos de circulação.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. O Fim do Zoneamento Rígido</h3>
+        <p>Tradicionalmente, o urbanismo moderno (como na Carta de Atenas) pregava a separação estrita entre moradia, trabalho e lazer. Hoje, os novos Shopping Centers desafiam essa lógica ao integrar torres residenciais e centros corporativos ao complexo comercial.
+        <ul>
+            <li><strong>Unidades de Vizinhança Verticais:</strong> Esses empreendimentos reduzem a necessidade de deslocamento urbano, criando uma "cidade de 15 minutos" dentro de um único terreno.</li>
+            <li><strong>Impacto Social:</strong> A arquitetura passa a focar na criação de praças internas e áreas de convívio que atendem tanto ao morador quanto ao consumidor casual.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Flexibilidade como Meta-Design</h3>
+        <p>Em espaços multiuso, a flexibilidade é o pilar central. O uso de divisórias móveis, mobiliário modular e sistemas de iluminação trilhados permite que o ambiente mude de função conforme o horário (ex: um espaço de coworking de dia que se transforma em um lounge de eventos à noite). Isso maximiza o ROI (Retorno sobre Investimento) por metro quadrado.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> O arquiteto moderno não projeta apenas paredes; ele projeta <strong>plataformas de serviços</strong>. Um espaço multiuso bem projetado é aquele que resolve as complexidades técnicas (acústica, odores e fluxos) de forma invisível para o usuário, permitindo que a convivência entre funções distintas pareça natural e orgânica.
+    </div>
+
+    <div class="question-box">
+        <strong>Discussão Urbana:</strong> Ao acoplar residências a centros comerciais, quais são os maiores desafios de <strong>Privacidade</strong> e <strong>Segurança</strong> que o arquiteto deve resolver para garantir o bem-estar dos moradores sem prejudicar o livre fluxo dos consumidores?
+    </div>
+</div>
+
+<div id="page18" class="page">
+    <header class="main-header">
+        <h1>Página 18: O que é o Estudo de Caso?</h1>
+    </header>
+
+    <div class="intro-text">
+        Um estudo de caso na arquitetura é uma investigação profunda e técnica de um projeto já construído. Ele não é apenas uma "inspiração" visual, mas sim uma análise crítica e diagnóstica que permite ao arquiteto aprender com a realidade construída.
+    </div>
+
+    <h2 class="lecture-title">Aula: Da Teoria à Prática Construída</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">A Ferramenta Diagnóstica do Arquiteto</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. O Objetivo Principal: Lições Aprendidas</h3>
+        <p>O foco central é extrair inteligência projetual. O arquiteto analisa como as decisões de design — como o layout, a escolha de materiais e a iluminação — se comportam na vida real. No contexto comercial, isso significa entender se o espaço efetivamente auxilia na conversão de vendas ou se o fluxo operacional dos funcionários é otimizado.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. O que se analisa? (Metodologia de Pesquisa)</h3>
+        <p>Para um estudo de caso ser eficiente, ele deve seguir uma estrutura analítica:</p>
+        <ul>
+            <li><strong>Programa de Necessidades:</strong> Como o arquiteto original resolveu os pedidos do cliente e as restrições do terreno?</li>
+            <li><strong>Setorização e Fluxos:</strong> Onde estão os acessos? Como os produtos são entregues? Onde ocorrem os conflitos entre clientes e serviço?</li>
+            <li><strong>Relação com o Entorno:</strong> Como a volumetria e a fachada se comunicam com a malha urbana ou com o corredor do shopping?</li>
+            <li><strong>Conforto Ambiental:</strong> A ventilação, térmica e iluminação são adequadas para a função específica do local?</li>
+            <li><strong>Normatização:</strong> De que forma foram aplicadas as leis de acessibilidade (<strong>NBR 9050</strong>) e segurança contra incêndio?</li>
+        </ul>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. A Vitalidade do Estudo para o Novo Projeto</h3>
+        <p>Ao realizar um estudo de caso, o profissional evita "reinventar a roda". Se a pesquisa identificar que um restaurante apresenta problemas acústicos devido ao uso excessivo de materiais reflexivos (como vidro e porcelanato), o novo projeto já nasce com o requisito técnico de incluir materiais absorventes (nuvens acústicas ou painéis amadeirados) para garantir o conforto do público.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Resumo Acadêmico:</strong> O estudo de caso é a ferramenta que transforma a <strong>observação passiva</strong> em <strong>conhecimento técnico aplicado</strong>. É o momento em que o arquiteto atua como um cientista social, observando como o ser humano interage com o ambiente construído para projetar espaços mais eficientes e humanos.
+    </div>
+
+    <div class="question-box">
+        <strong>Reflexão Metodológica:</strong> Por que a análise de <strong>pós-ocupação</strong> (observar o prédio após meses de uso) é considerada mais valiosa do que apenas analisar fotos do projeto recém-inaugurado em revistas de arquitetura?
+    </div>
+</div>
+
+<div id="page19" class="page">
+    <header class="main-header">
+        <h1>Página 19: Estudos de Caso como Ferramenta Projetual</h1>
+    </header>
+
+    <div class="intro-text">
+        Projetar um empreendimento comercial sem realizar um estudo de caso é como navegar sem mapa. Os estudos de caso permitem que o arquiteto aprenda com sucessos e falhas de projetos existentes, compreendendo as exigências técnicas e comportamentais específicas de cada tipologia.
+  Os estudos de casos são importantes para conhecer o tipo de empreendimento a ser projetado.  
+</div>
+
+    <h2 class="lecture-title">Aula: Anatomia de um Projeto Real</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Analisando o DNA do Empreendimento</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. O Que Analisar em um Estudo de Caso?</h3>
+        <p>Um estudo de caso eficiente vai além da estética. Ele deve dissecar o funcionamento do edifício através de pilares fundamentais:
+        <ul>
+            <li><strong>Sintaxe Espacial:</strong> Como os espaços são conectados? Qual a hierarquia entre a área de vendas e a área de suporte?</li>
+            <li><strong>Fluxos de Usuários:</strong> Onde ocorrem os gargalos? O layout facilita a circulação intuitiva ou gera confusão?</li>
+            <li><strong>Escolha de Materiais:</strong> Os revestimentos suportam o tráfego intenso? Como o envelhecimento dos materiais impacta a imagem da marca?</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Evitando o "Erro por Analogia"</h3>
+        <p>Estudos de caso ajudam o arquiteto a identificar soluções que funcionam em contextos específicos e a evitar a repetição de erros. Por exemplo, ao estudar um restaurante de sucesso, pode-se descobrir que a localização dos sanitários impacta diretamente no faturamento de mesas próximas, ou que a iluminação da vitrine de uma loja de roupas em um shopping center deve ser radicalmente diferente da de uma loja de rua.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Benchmarking e Tendências de Mercado</h3>
+        <p>No setor comercial, os estudos de caso funcionam como um <strong>Benchmarking</strong> arquitetônico. Eles revelam como a concorrência está utilizando a tecnologia (ex: self-checkout), como estão resolvendo a acessibilidade (NBR 9050) e quais novas experiências de consumo estão sendo testadas. Isso permite que o novo projeto nasça com uma vantagem competitiva, oferecendo soluções que o mercado já validou ou superando lacunas existentes.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Um bom arquiteto é um excelente observador. Ao realizar um estudo de caso, não seja apenas um visitante; seja um detetive. Meça os corredores, cronometre o atendimento, observe onde as pessoas param para olhar. Esses dados informais são o que transformam um desenho bonito em um projeto comercial lucrativo e funcional.
+    </div>
+
+    <div class="question-box">
+        <strong>Atividade de Pesquisa:</strong> Escolha um empreendimento comercial no seu bairro que você admira. Tente identificar <strong>dois problemas</strong> que o arquiteto resolveu de forma criativa e <strong>um erro</strong> que poderia ter sido evitado com um estudo de caso mais profundo sobre o fluxo de serviço.
+    </div>
+</div>
+
+<div id="page20" class="page">
+    <header class="main-header">
+        <h1>Página 20: Público-Alvo e a Identidade do Espaço</h1>
+    </header>
+
+    <div class="intro-text">
+        Projetar sem conhecer o usuário é como construir um cenário sem roteiro. Identificar o público-alvo é a premissa básica que diferencia um sucesso comercial de um erro de investimento. Dois estabelecimentos da mesma área podem exigir linguagens arquitetônicas opostas para atrair seus respectivos usuários típicos.
+    </div>
+
+    <h2 class="lecture-title">Aula: Segmentação e Resposta Espacial</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Por que dois restaurantes nunca são iguais?</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. A Psicologia da Aproximação</h3>
+        <p>A fachada e o layout interno funcionam como um filtro social. 
+        <ul>
+            <li><strong>Exemplo A (Público Jovem/Estudantil):</strong> O projeto prioriza áreas de convívio coletivo, mobiliário versátil para grupos e pontos de energia para dispositivos móveis. A estética costuma ser industrial ou vibrante, sinalizando acessibilidade e dinamismo.</li>
+            <li><strong>Exemplo B (Público Executivo/Luxo):</strong> O projeto foca na <strong>Privacidade</strong>. O distanciamento entre mesas é maior, o pé-direito pode ser trabalhado para gerar imponência e os materiais (couro, madeira nobre) sinalizam exclusividade e status.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Ergonomia Adaptada ao Comportamento</h3>
+        <p>O perfil do usuário dita a ergonomia do objeto. Em um restaurante voltado para famílias com crianças, o design deve prever áreas de circulação mais amplas para carrinhos e materiais de fácil manutenção. Já em um café voltado para "Digital Nomads", a ergonomia da cadeira e a altura da mesa devem favorecer o uso prolongado de laptops, transformando o espaço comercial em um coworking informal.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Fluxos e Tempo de Resposta</h3>
+        <p>A percepção de eficiência varia com o público. 
+        <ul>
+            <li><strong>O Usuário de Almoço Executivo:</strong> Valoriza a rapidez no serviço e um fluxo de pagamento otimizado. O layout deve ser linear e intuitivo.</li>
+            <li><strong>O Usuário de Lazer/Fim de Semana:</strong> Valoriza o <em>"Dwell Time"</em> (tempo de permanência). O layout deve incentivar a exploração visual e o relaxamento, muitas vezes utilizando caminhos menos diretos e zonas de transição sombreadas.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> O "bom design" é relativo ao público que o consome. Uma iluminação neon super vibrante pode ser perfeita para uma hamburgueria temática, mas um desastre para um consultório de psicologia. Antes de traçar a primeira parede, pergunte ao seu cliente: <em>"Quem é a pessoa que vai abrir essa porta?"</em>.
+    </div>
+
+    <div class="question-box">
+        <strong>Exercício de Diagnóstico:</strong> Imagine dois cafés vizinhos. Um foca em "Take-away" para pessoas que vão ao trabalho, e o outro foca em "Slow Coffee" para entusiastas. Liste três elementos arquitetônicos que seriam obrigatoriamente diferentes entre eles.
+    </div>
+</div>
+
+<div id="page21" class="page">
+    <header class="main-header">
+        <h1>Página 21: A Engenharia do Desejo e o Impulso</h1>
+    </header>
+
+    <div class="intro-text">
+        O maior desejo do dono de um empreendimento é que o seu cliente consuma o produto que ele está oferecendo. Para isso, ele precisa despertar o <strong>Impulso de Compra</strong>, que é, segundo <strong>Parente (2000)</strong>, a situação em que o consumidor é levado a comprar impulsivamente, sem qualquer análise prévia decisória, motivado pelo sentimento de urgência.
+    </div>
+
+    <h2 class="lecture-title">Aula: Visual Merchandising (VM)</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">O Arquiteto como Estrategista de Vendas</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. O Conceito de Parente (2000): O Fator Urgência</h3>
+        <p>Juracy Parente, em sua obra <em>Varejo no Brasil</em>, destaca que a compra por impulso é uma reação emocional a estímulos externos. No design de interiores comercial, o arquiteto cria esses estímulos através da <strong>Hierarquia Visual</strong>. O produto não é apenas "exposto"; ele é "encenado" para que o cliente sinta que a oportunidade de adquiri-lo é única e imediata.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. VM: Além da Vitrine</h3>
+        <p>O Visual Merchandising é o conjunto de técnicas que tornam o produto atrativo. Arquitetonicamente, isso se traduz em:
+        <ul>
+            <li><strong>Hot Zones (Zonas Quentes):</strong> Áreas de alta visibilidade e fluxo (como a entrada e as proximidades do caixa) onde produtos de compra por impulso são estrategicamente posicionados.</li>
+            <li><strong>Iluminação de Destaque:</strong> O uso de projetores de luz com alto <strong>CRI (Índice de Reprodução de Cor)</strong> para saturar as cores do produto, tornando-o psicologicamente mais irresistível.</li>
+            <li><strong>Layout de Fluxo Forçado:</strong> Estratégias como o "modelo IKEA", onde o caminho conduz o cliente por toda a exposição, maximizando o contato visual com produtos não planejados.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Estímulos Sensoriais e Decisão Não-Racional</h3>
+        <p>O VM atua nos sentidos para desligar a "análise prévia decisória" mencionada por Parente. 
+        <ul>
+            <li><strong>Tato e Altura:</strong> Produtos ao nível dos olhos e das mãos têm 60% mais chance de serem comprados por impulso.</li>
+            <li><strong>Cenografia:</strong> Criar um "estilo de vida" ao redor do objeto (ex: montar uma mesa de jantar completa em vez de apenas empilhar pratos) ajuda o consumidor a se projetar usando o produto, gerando a urgência emocional.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Como arquitetos, nossa missão é transformar o espaço em um "vendedor silencioso". O <strong>Visual Merchandising</strong> é o que transforma a arquitetura fria em uma ferramenta de marketing ativa. Lembre-se: se o cliente precisa parar para pensar muito sobre o preço, o design do estímulo visual falhou em criar a urgência necessária proposta por Parente.
+    </div>
+
+    <div class="question-box">
+        <strong>Análise Técnica:</strong> Observe a área do caixa (check-out) de um grande supermercado. Quais elementos de <strong>Visual Merchandising</strong> você identifica ali que são projetados especificamente para gerar o "sentimento de urgência" em produtos de baixo valor unitário?
+    </div>
+</div>
+
+<div id="page22" class="page">
+    <header class="main-header">
+        <h1>Página 22: Análise da Obra "Varejo no Brasil"</h1>
+    </header>
+
+    <div class="intro-text">
+        A obra de Juracy Parente é o pilar fundamental para entender o comércio em território nacional. Ela não foca apenas na venda, mas na <strong>estratégia sistêmica</strong> que sustenta o ponto de venda (PDV). Abaixo, exploramos os eixos centrais que compõem a estrutura lógica deste estudo.
+    </div>
+
+    <h2 class="lecture-title">Aula: O Mix de Varejo e o Planejamento</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Decifrando os Pilares Estratégicos de Parente</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Entendendo o Consumidor e o Ambiente</h3>
+        <p>Os capítulos iniciais focam na <strong>Análise Macroambiental</strong>. Parente discute como as variáveis econômicas, socioculturais e tecnológicas do Brasil moldam o comportamento do consumidor. 
+        <br><strong>Conexão Arquitetônica:</strong> Aqui, o arquiteto entende que o design deve responder ao <em>Zeitgeist</em> (espírito da época), adaptando o luxo ou a funcionalidade conforme o poder de compra e os hábitos locais.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Planejamento Estratégico e Localização</h3>
+        <p>Parente dedica seções críticas à <strong>Escolha do Ponto</strong>. Ele analisa a importância da acessibilidade, visibilidade e vizinhança comercial. 
+        <ul>
+            <li><strong>Capítulo de Localização:</strong> Essencial para o arquiteto que realiza o <em>Site Analysis</em>. A localização define o fluxo de pedestres e, consequentemente, a configuração dos acessos e da fachada.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. O Mix de Varejo (Os 6 Ps do Varejo)</h3>
+        <p>A parte central da obra detalha a execução operacional, onde a arquitetura se torna protagonista através do <strong>Mix de Varejo</strong>:
+        <ul>
+            <li><strong>Produto e Preço:</strong> Definem o posicionamento da marca (Popular vs. Premium).</li>
+            <li><strong>Apresentação (Atmosphere):</strong> É aqui que entra o Visual Merchandising, o design de interiores, a iluminação e a cenografia discutidos na página anterior.</li>
+            <li><strong>Promoção, Pessoas e Ponto:</strong> A logística humana e a comunicação visual dentro do espaço.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>4. Gestão de Operações e Tecnologia</h3>
+        <p>Os capítulos finais abordam a <strong>Logística e o Suporte</strong>. Parente explica que um varejo eficiente depende do que o cliente não vê: o estoque, a automação e a reposição.
+        <br><strong>Conexão Arquitetônica:</strong> Reforça a necessidade de áreas de serviço bem dimensionadas (Back-office), garantindo que a "máquina" do varejo funcione sem interromper a experiência do cliente no salão.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Parente nos ensina que o varejo é <strong>detalhe</strong>. Cada capítulo da sua obra reflete uma camada do projeto arquitetônico. Quando projetamos uma loja, estamos materializando o "P" de Apresentação e o "P" de Ponto. Sem a base teórica de Parente, o design corre o risco de ser apenas estético, sem eficácia comercial.
+    </div>
+
+    <div class="question-box">
+        <strong>Reflexão Crítica:</strong> Baseado na teoria de Parente sobre o "Mix de Varejo", qual dos 6 Ps você acredita ser o mais influenciado pelas decisões de um arquiteto de interiores? Justifique sua resposta.
+    </div>
+
+    <header class="main-header">
+        <h1>O Varejo sob a Ótica de Parente</h1>
+    </header>
+
+    <div class="intro-text">
+        Para uma compreensão profunda, analisamos aqui os capítulos fundamentais de <em>Varejo no Brasil</em>. Cada "caixa" representa um pilar do planejamento que deve ser traduzido em traços arquitetônicos.
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 1 e 2: O Papel e a Importância do Varejo</h3>
+        <p>Parente estabelece o varejo como o elo final da cadeia de suprimentos. 
+        <br><strong>Insight Arquitetônico:</strong> O espaço comercial é o "palco" onde a economia se torna tangível. O design deve refletir a importância social desse ponto de encontro entre produto e cidadão.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 3: Comportamento do Consumidor</h3>
+        <p>Análise de como o brasileiro compra e o que o motiva (fatores culturais e sociais).
+        <br><strong>Insight Arquitetônico:</strong> Aqui definimos a <strong>Proxêmica</strong>. Se o público busca status, as circulações são amplas; se busca economia, a densidade de produtos no layout aumenta.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 4: Planejamento Estratégico</h3>
+        <p>A definição da missão e objetivos do negócio.
+        <br><strong>Insight Arquitetônico:</strong> O <strong>Conceito Criativo</strong> (Moodboard) nasce aqui. A arquitetura deve materializar visualmente a missão da empresa (Ex: sustentabilidade = materiais naturais).</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 5: Localização no Varejo</h3>
+        <p>Um dos capítulos mais vitais. Estuda o potencial de mercado, acessos e polos geradores de tráfego.
+        <br><strong>Insight Arquitetônico:</strong> Define o <strong>Site Analysis</strong>. A fachada deve ser orientada para o maior fluxo e o layout deve respeitar os pontos de entrada naturais do terreno.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 6: Estratégia de Mercadoria</h3>
+        <p>O que será vendido e em que volume (Sortimento).
+        <br><strong>Insight Arquitetônico:</strong> Determina o dimensionamento da <strong>Área de Exposição</strong> vs. <strong>Área de Estoque</strong>. Produtos volumosos exigem mobiliário de grandes vãos e circulações largas.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 7 e 8: Preços e Comunicação</h3>
+        <p>Como o preço afeta a percepção de valor e como a marca "fala" com o cliente.
+        <br><strong>Insight Arquitetônico:</strong> A iluminação atua aqui. Preços baixos pedem luz geral uniforme (clareza); preços altos pedem luz pontual e teatral (mistério/exclusividade).</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 9: O Mix de Varejo e a Atmosfera</h3>
+        <p>Onde o <strong>Visual Merchandising</strong> é formalizado como ferramenta de diferenciação.
+        <br><strong>Insight Arquitetônico:</strong> É a arquitetura de interiores em sua plenitude: cores, aromas, sons e materiais que criam a "alma" do estabelecimento.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 10: Atendimento e Pessoas</h3>
+        <p>A gestão do capital humano dentro da loja.
+        <br><strong>Insight Arquitetônico:</strong> Dimensionamento de áreas sociais para funcionários, vestiários e balcões de atendimento que sejam ergonômicos e acessíveis (NBR 9050).</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 11: Tecnologia e Operações</h3>
+        <p>Sistemas de caixa, segurança e logística interna.
+        <br><strong>Insight Arquitetônico:</strong> A <strong>Infraestrutura Invisível</strong>. Previsão de eletrodutos para câmeras, automação de iluminação e sistemas de prevenção contra incêndio.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota Final:</strong> Estudar Parente capítulo por capítulo permite ao arquiteto construir um <strong>Briefing</strong> imbatível. Você não projeta para "parecer bonito", você projeta para cada engrenagem desse livro funcionar perfeitamente.
+    </div>
+</div>
+
+<div id="page23" class="page">
+    <header class="main-header">
+        <h1>Página 23: Visual Merchandising como Identidade</h1>
+    </header>
+
+    <div class="intro-text">
+        Segundo <strong>Regina Blessa (2006)</strong>, em sua obra <em>Merchandising no Ponto de Venda</em>, o Visual Merchandising é o conjunto de técnicas utilizadas para construir uma identidade por meio de todos os elementos que contornam o produto. Essa técnica abrange design, arquitetura e decoração, criando uma atmosfera confortável que induza o cliente à compra.
+  <p> Atualmente, tem sido um desafio para as empresas entender o comporta-
+mento dos seus consumidores, seus hábitos de consumo e desejos. Para isso, 
+quanto mais informações referentes ao cliente você tiver em mãos, maior a co-
+laboração para a construção de um projeto de visual merchandising adequado. </p>  
+
+</div>
+
+    <h2 class="lecture-title">Aula: A Arquitetura como Narrativa de Marca</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Construindo Atmosferas Indutivas e Orientadas por Dados</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. O Triângulo de Blessa: Design, Arquitetura e Decoração</h3>
+        <p>Blessa defende que o VM não é uma camada superficial, mas uma integração estrutural. 
+        <ul>
+            <li><strong>Arquitetura:</strong> Define o volume, a circulação e a "casca" do ambiente.</li>
+            <li><strong>Design:</strong> Organiza a função e a ergonomia do mobiliário de exposição.</li>
+            <li><strong>Decoração:</strong> Aplica a semiótica (cores, texturas e objetos) para humanizar o espaço.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. A Atmosfera Confortável e a Indução</h3>
+        <p>O conceito de "conforto" aqui é estratégico. Um cliente confortável permanece mais tempo, o que aumenta a taxa de conversão. A indução à compra ocorre quando o ambiente <strong>elimina as barreiras psicológicas</strong> do consumidor, transformando a transação comercial em uma experiência de lazer ou autodescoberta.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. O Desafio dos Dados: Conhecer para Projetar</h3>
+        <p>Atualmente, o desafio é o mapeamento do comportamento. Blessa aponta que o sucesso do VM depende de informações sobre hábitos e desejos do consumidor. 
+        <br><strong>Aplicação Prática:</strong> Se os dados indicam que o público-alvo valoriza sustentabilidade, a arquitetura deve responder com materiais certificados e iluminação de baixo consumo. O projeto deixa de ser genérico para se tornar <strong>específico e empático</strong>.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Regina Blessa nos ensina que o produto é apenas o centro de um universo. Todo o "contorno" — o que chamamos de <strong>Envelope Atmosférico</strong> — é responsabilidade do arquiteto. Sem uma identidade clara, o ponto de venda é apenas um depósito; com o VM de Blessa, ele se torna um destino.
+    </div>
+
+    <div class="question-box">
+        <strong>Análise de Marca:</strong> Pense em uma marca global (como a Apple ou a Starbucks). Como a <strong>arquitetura</strong> desses locais reflete a identidade da marca antes mesmo de você ver o primeiro produto à venda?
+    </div>
+
+    <header class="main-header">
+        <h1>O Merchandising como Ciência Espacial</h1>
+    </header>
+
+    <div class="intro-text">
+        Nesta versão expandida, analisamos os pilares da obra de <strong>Regina Blessa</strong>. Para ela, o ponto de venda (PDV) é um organismo vivo onde cada elemento — do piso ao forro — deve ser orquestrado para comunicar a promessa da marca.
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Eixo 1: Definições e a Evolução do PDV</h3>
+        <p>Blessa diferencia o Merchandising (ação) do Marketing (estratégia). Ela define o PDV como o "Momento da Verdade".
+        <br><strong>Conexão Arquitetônica:</strong> O arquiteto deve projetar espaços que facilitem o <strong>Autoatendimento</strong>. Se o design for confuso, a técnica de merchandising falha, pois o cliente não encontra o produto de forma intuitiva.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Eixo 2: Atmosfera e Psicologia do Ambiente</h3>
+        <p>Aqui, a autora detalha o uso dos sentidos (Visão, Olfato, Audição, Tato). Ela explica que a atmosfera é o que "segura" o cliente na loja.
+        <br><strong>Conexão Arquitetônica:</strong> Especificação de materiais. O uso de carpetes (acústica/conforto) vs. porcelanatos (brilho/limpeza) é uma decisão de merchandising baseada na psicologia do público-alvo.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Eixo 3: Layout, Fluxo e Gestão de Espaço</h3>
+        <p>Blessa analisa como o cliente caminha (geralmente para a direita e no sentido anti-horário). Ela descreve as <strong>Zonas Frias</strong> (áreas de baixo fluxo) e como "esquentá-las" com design.
+        <br><strong>Conexão Arquitetônica:</strong> O desenho da planta baixa deve criar "nós" de interesse. O posicionamento de escadas rolantes ou provadores é estratégico para forçar o cliente a percorrer a maior metragem possível.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Eixo 4: Elementos de Exposição (Displays e Vitrines)</h3>
+        <p>Este capítulo foca na <strong>Cenografia</strong>. Blessa trata a vitrine como o "cartão de visitas" e o display como o "vendedor silencioso".
+        <br><strong>Conexão Arquitetônica:</strong> Detalhamento de mobiliário expositor. O arquiteto deve prever iluminação flexível (trilhos) e modulação que permita trocar a exposição sem reformas estruturais.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Eixo 5: Comportamento e Hábitos de Consumo</h3>
+        <p>Blessa enfatiza que o design deve ser <strong>Data-Driven</strong> (baseado em dados). Sem conhecer o hábito do cliente, o VM é apenas decoração.
+        <br><strong>Conexão Arquitetônica:</strong> A importância do Briefing. O arquiteto deve questionar: "Qual o ticket médio? Qual a faixa etária?". Um público idoso exige fontes maiores na sinalização e assentos de descanso frequentes.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Eixo 6: Comunicação Visual e Sinalização</h3>
+        <p>A "voz" da loja. Como as placas, etiquetas e sinalizações de setor se integram ao design.
+        <br><strong>Conexão Arquitetônica:</strong> Integração entre Arquitetura e Design Gráfico (Wayfinding). A sinalização não deve ser um "puxadinho", mas parte da volumetria do espaço.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Regina Blessa deixa claro que o Visual Merchandising é uma <strong>interseção</strong>. Se você é um excelente arquiteto mas ignora o comportamento do consumidor, você criará um monumento, não um comércio. O sucesso é medido pela fluidez com que o design induz à compra de forma invisível.
+    </div>
+
+    <div class="question-box">
+        <strong>Desafio de Design:</strong> Baseado no Eixo 3 (Layout), como você transformaria uma "Zona Fria" (um canto morto no fundo da loja) em uma "Zona Quente" apenas usando iluminação e a teoria de Blessa?
+    </div>
+</div>
+
+<div id="page24" class="page">
+    <header class="main-header">
+        <h1>Página 24: A Arquitetura como Interface de Consumo</h1>
+    </header>
+
+    <div class="intro-text">
+        A dissertação de <strong>Karine Petry de Aguiar (USP)</strong> investiga como os ambientes comerciais moldam a paisagem urbana e o comportamento humano. O design visual não é apenas decorativo; é uma ferramenta de comunicação que define a relação entre o sujeito pós-moderno e a cidade.
+    </div>
+
+    <h2 class="lecture-title">Resumo Técnico por Capítulos</h2>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 1: Gênese e Evolução do Comércio</h3>
+        <p>A autora traça a história do comércio, desde o escambo e feiras itinerantes até a consolidação de locais fixos.
+        <br><strong>Foco Arquitetônico:</strong> O surgimento dos "armazéns de secos e molhados" como a base da arquitetura comercial. O capítulo explica como a necessidade de troca criou a demanda por infraestrutura e meios de transporte, moldando o nascimento das cidades modernas.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 2: O Cenário Pós-Moderno e o Consumo</h3>
+        <p>Análise da transição do consumo funcional para o consumo de experiência e simbologia.
+        <br><strong>Foco Arquitetônico:</strong> Aguiar discute como o sujeito contemporâneo busca identidade através dos espaços. A arquitetura comercial deixa de ser um "abrigo de produtos" para se tornar uma "estética do cotidiano", onde o design visual deve satisfazer anseios emocionais e psicológicos.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 3: Parâmetros do Design Visual em Fachadas</h3>
+        <p>O núcleo técnico da pesquisa. Identifica os parâmetros que tornam uma fachada comercial comunicativa e eficiente.
+        <ul>
+            <li><strong>Semiótica da Fachada:</strong> A vitrine e a entrada funcionam como a "primeira página" de um contrato de consumo.</li>
+            <li><strong>Ferramentas de Merchandising:</strong> Como o design de interiores transborda para o espaço público para atrair e converter o pedestre em cliente.</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>Capítulo 4: Análise de Campo e Resultados</h3>
+        <p>Nesta seção, a autora aplica os parâmetros levantados em estudos de caso reais, avaliando a eficácia da comunicação visual em estabelecimentos comerciais.
+        <br><strong>Conclusão Técnica:</strong> A pesquisa demonstra que ambientes projetados com preocupação estética e funcional (conciliando arquitetura e merchandising) possuem uma conexão significativamente maior com o consumidor e com o contexto urbano.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> A obra de Aguiar reforça que a fachada é o ponto de contato mais crítico entre a marca e a cidade. Como arquitetos, devemos tratar a fachada comercial não como uma parede, mas como um <strong>dispositivo de comunicação visual</strong> que altera a percepção do valor do produto e a própria dinâmica da rua.
+    </div>
+
+    <div class="question-box">
+        <strong>Desafio Analítico:</strong> Segundo a dissertação, de que forma o design visual de uma fachada pode contribuir para a revitalização de um espaço urbano degradado através do comércio?
+    </div>
+</div>
+
+<div id="page25" class="page">
+    <header class="main-header">
+        <h1>Página 25: Exercício de Classificação (Kerin et al., 2007)</h1>
+    </header>
+
+    <div class="intro-text">
+        Baseando-se na Tabela 1 de Kerin et al. (2007), que classifica os bens de consumo, arraste os cartões de <strong>CARACTERÍSTICA TÉCNICA</strong> para a coluna correta do <strong>TIPO DE BEM DE CONSUMO</strong>. Este exercício demonstra como a tipologia do produto determina a estratégia arquitetônica.
+    </div>
+
+    <div id="drag-drop-container" style="margin-top: 30px;">
         
-        // --- LISTENERS PARA ATUALIZAÇÃO AUTOMÁTICA ---
-        
-        const autoUpdateElements = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
-        
-        autoUpdateElements.forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                renderPreview();
-                renderFinal();
-            });
-        });
+        <div class="technical-row" style="margin-bottom: 20px;">
+            <h3>Zonas de Destino</h3>
+            <div id="columns-goods" style="display: flex; gap: 20px; justify-content: space-around;">
+                <div id="conveniência" class="drop-zone" style="flex: 1; min-height: 150px; border: 2px dashed #777; padding: 10px; background: #fafafa;">
+                    <h4>1. CONVENIÊNCIA</h4>
+                </div>
+                <div id="comparada" class="drop-zone" style="flex: 1; min-height: 150px; border: 2px dashed #777; padding: 10px; background: #fafafa;">
+                    <h4>2. COMPRA COMPARADA</h4>
+                </div>
+                <div id="especialidade" class="drop-zone" style="flex: 1; min-height: 150px; border: 2px dashed #777; padding: 10px; background: #fafafa;">
+                    <h4>3. ESPECIALIDADE</h4>
+                </div>
+                <div id="não_procurado" class="drop-zone" style="flex: 1; min-height: 150px; border: 2px dashed #777; padding: 10px; background: #fafafa;">
+                    <h4>4. NÃO-PROCURADO</h4>
+                </div>
+            </div>
+        </div>
 
-        // O botão "Finalize" agora funciona como um "Reset" de pentagramas extras e refresh manual
-        document.getElementById('finalizeBtn').addEventListener('click', () => {
-            extraStavesCount = 0;
-            renderFinal();
-        });
-        
-        document.getElementById('addStaveBtn').addEventListener('click', () => {
-            extraStavesCount++;
-            renderFinal();
-        });
-
-        document.getElementById('printBtn').addEventListener('click', () => {
-            window.print();
-        });
-
-        // Inicialização completa no carregamento
-        window.onload = () => {
-            renderPreview();
-            renderFinal();
-        };
-
-
-
-      // --- LÓGICA DE ÁUDIO ---
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    // Mapeamento de quais notas recebem sustenido/bemol em cada escala
-    const keyMaps = {
-        'C': {},
-        'G': { 'F': 'F#' },
-        'F': { 'B': 'Bb' },
-        'Eb': { 'B': 'Bb', 'E': 'Eb', 'A': 'Ab' }
-    };
-
-    function getFrequency(noteStr) {
-        const notes = { 'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11 };
-        
-        // 1. Identifica a nota e a oitava
-        const match = noteStr.match(/([A-G][#b]?)(\d)/i);
-        if (!match) return 440;
-
-        let name = match[1].toUpperCase();
-        const octave = parseInt(match[2]);
-        const currentKey = document.getElementById('keySig').value;
-
-        // 2. APLICA A ARMADURA DE CLAVE: 
-        // Se a nota for simples (ex: "F") e a escala pedir alteração (ex: "F#"), ajustamos o nome.
-        if (name.length === 1 && keyMaps[currentKey] && keyMaps[currentKey][name]) {
-            name = keyMaps[currentKey][name];
-        }
-
-        const semitones = notes[name] + (octave - 4) * 12;
-        return 440 * Math.pow(2, (semitones - 9) / 12);
-    }
-
-    async function generateAudio(isDownload = false) {
-        const notationText = document.getElementById('notation').value;
-        const sections = notationText.split(',').filter(s => s.trim() !== "");
-        const playbackNotes = [];
-
-        // Parse simples para áudio
-        sections.forEach(item => {
-            const match = item.trim().match(/(\d+)\s+([A-Ga-g#b]+\d+)\s+([whq816]+)/);
-            if (match) {
-                const count = parseInt(match[1]);
-                const pitch = match[2];
-                const durChar = match[3];
-                const durationSeconds = getDurationValue(durChar) * 0.5; // Ajuste de tempo (0.5s por semínima)
-                for (let i = 0; i < count; i++) {
-                    playbackNotes.push({ freq: getFrequency(pitch), duration: durationSeconds });
-                }
-            }
-        });
-
-        if (isDownload) {
-            return exportWAV(playbackNotes);
-        } else {
-            playNotes(playbackNotes);
-        }
-    }
-
-    function playNotes(notes) {
-        let currentTime = audioCtx.currentTime;
-        notes.forEach(note => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'triangle'; // Som mais suave que 'sine' para partitura
-            osc.frequency.setValueAtTime(note.freq, currentTime);
-            
-            gain.gain.setValueAtTime(0.2, currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.0001, currentTime + note.duration - 0.05);
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start(currentTime);
-            osc.stop(currentTime + note.duration);
-            currentTime += note.duration;
-        });
-    }
-
-    // Função para exportar WAV (simplificada)
-    function exportWAV(notes) {
-        const sampleRate = 44100;
-        const totalDuration = notes.reduce((acc, n) => acc + n.duration, 0);
-        const frameCount = sampleRate * totalDuration;
-        const buffer = audioCtx.createBuffer(1, frameCount, sampleRate);
-        const data = buffer.getChannelData(0);
-
-        let offset = 0;
-        notes.forEach(note => {
-            const noteFrames = note.duration * sampleRate;
-            for (let i = 0; i < noteFrames; i++) {
-                // Síntese básica de onda senoidal com fade out
-                const sample = Math.sin(2 * Math.PI * note.freq * (i / sampleRate));
-                const fade = Math.max(0, 1 - i / noteFrames);
-                data[offset + i] = sample * 0.5 * fade;
-            }
-            offset += noteFrames;
-        });
-
-        // Criar Blob WAV
-        const wavBuffer = audioBufferToWav(buffer);
-        const blob = new Blob([wavBuffer], { type: 'audio/wav' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = (document.getElementById('musicTitleInput').value || 'composition') + '.wav';
-        anchor.click();
-    }
-
-    // Helper para formatar o cabeçalho WAV
-    function audioBufferToWav(buffer) {
-        let numOfChan = buffer.numberOfChannels,
-            length = buffer.length * numOfChan * 2 + 44,
-            bufferWav = new ArrayBuffer(length),
-            view = new DataView(bufferWav),
-            channels = [], i, sample,
-            offset = 0,
-            pos = 0;
-
-        function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-        function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-
-        setUint32(0x46464952); // "RIFF"
-        setUint32(length - 8);
-        setUint32(0x45564157); // "WAVE"
-        setUint32(0x20746d66); // "fmt "
-        setUint32(16);
-        setUint16(1);
-        setUint16(numOfChan);
-        setUint32(buffer.sampleRate);
-        setUint32(buffer.sampleRate * 2 * numOfChan);
-        setUint16(numOfChan * 2);
-        setUint16(16);
-        setUint32(0x61746164); // "data"
-        setUint32(length - pos - 4);
-
-        for(i=0; i<buffer.numberOfChannels; i++) channels.push(buffer.getChannelData(i));
-        while(pos < length) {
-            for(i=0; i<numOfChan; i++) {
-                sample = Math.max(-1, Math.min(1, channels[i][offset]));
-                sample = (sample < 0 ? sample * 0x8000 : sample * 0x7FFF);
-                view.setInt16(pos, sample, true);
-                pos += 2;
-            }
-            offset++;
-        }
-        return bufferWav;
-    }
-
-    // Novos Listeners
-    document.getElementById('playBtn').addEventListener('click', () => {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        generateAudio(false);
-    });
-
-    document.getElementById('downloadAudioBtn').addEventListener('click', () => {
-        generateAudio(true);
-    });
-
-
-
-
-
-function updateLibraryCode() {
-    try {
-        const outputBox = document.getElementById('generatedLibraryCode');
-        if (!outputBox) return;
-
-        const clefValue = document.getElementById('clef').value;
-        const keySig = document.getElementById('keySig').value;
-        const timeSigStr = document.getElementById('timeSig').value;
-        const allNotes = parseNotation(document.getElementById('notation').value, clefValue);
-        
-        const [numBeats, beatValue] = timeSigStr.split('/').map(Number);
-        const measures = [];
-        if (allNotes.length > 0) {
-            let currentMeasure = [];
-            let currentTicks = 0;
-            allNotes.forEach((note) => {
-                currentMeasure.push(note);
-                currentTicks += note.realValue;
-                if (currentTicks >= (numBeats * (4 / beatValue)) - 0.01) {
-                    measures.push(currentMeasure);
-                    currentMeasure = [];
-                    currentTicks = 0;
-                }
-            });
-            if (currentMeasure.length > 0) measures.push(currentMeasure);
-        }
-
-        let generatedJS = `// --- CÓDIGO PARA VEX_LOGIC.JS ---\n\n`;
-        
-        measures.forEach((mNotes, index) => {
-            const mIdx = index + 1;
-            generatedJS += `const notes${mIdx} = [\n`;
-            
-            mNotes.forEach((note, nIdx) => {
-                const keys = JSON.stringify(note.keys);
-                const duration = note.duration;
-                const stemVal = note.getStemDirection();
-                const stemStr = stemVal === 1 ? "VF.Stem.UP" : "VF.Stem.DOWN";
+        <div class="technical-row">
+            <h3>Cartões de Característica Técnica (Arraste)</h3>
+            <div id="draggable-items" style="display: flex; gap: 10px; flex-wrap: wrap; padding: 15px; background: #f1f1f1;">
                 
-                let noteCode = `    new VF.StaveNote({ keys: ${keys}, duration: "${duration}", stem_direction: ${stemStr} })`;
+                <div id="card_prod1" class="drag-item" draggable="true" value="conveniência">Pastas de dentes, sabonete</div>
+                <div id="card_prod2" class="drag-item" draggable="true" value="comparada">Câmeras, TVs, roupas</div>
+                <div id="card_prod3" class="drag-item" draggable="true" value="especialidade">Carros Rolls Royce, Rolex</div>
+                <div id="card_prod4" class="drag-item" draggable="true" value="não_procurado">Plano funeral, dicionário</div>
+
+                <div id="card_preço1" class="drag-item" draggable="true" value="conveniência">Relativamente barato (Preço)</div>
+                <div id="card_preço2" class="drag-item" draggable="true" value="especialidade">Geralmente muito caro (Preço)</div>
+                <div id="card_dist1" class="drag-item" draggable="true" value="conveniência">Pulverizada; muitos varejistas (Distribuição)</div>
+                <div id="card_dist2" class="drag-item" draggable="true" value="especialidade">Muito limitado (Distribuição)</div>
+
+                <div id="card_comp1" class="drag-item" draggable="true" value="conveniência">Compras frequentes; pequeno esforço (Comportamento)</div>
+                <div id="card_comp2" class="drag-item" draggable="true" value="comparada">Necessita tempo de comparação (Comportamento)</div>
+                <div id="card_comp3" class="drag-item" draggable="true" value="especialidade">Compra pouco frequente; necessita tempo maior (Comportamento)</div>
                 
-                if (note.modifiers.length > 0) {
-                    const acc = note.modifiers.find(m => m.getCategory() === "accidentals");
-                    if (acc) {
-                        noteCode = `    acc(${noteCode.trim()}, "${acc.type}")`;
-                    }
-                }
-                generatedJS += noteCode + (nIdx === mNotes.length - 1 ? "" : ",") + "\n";
-            });
-            generatedJS += `];\n\n`;
-        });
+            </div>
+        </div>
 
-        generatedJS += `// --- DESENHO DOS COMPASSOS ---\n`;
-        measures.forEach((_, index) => {
-            const mIdx = index + 1;
-            const lineIndex = Math.floor(index / 2);
-            const yPos = 40 + (lineIndex * 160);
+        <button class="nav-btn" onclick="checkDragAndDropGoods()" style="width: 100%; margin-top: 20px; background: var(--accent); color: white; border: none; padding: 15px; cursor: pointer;">Finalizar Exercício</button>
+        
+        <div id="drag-feedback" class="question-box" style="display:none; margin-top: 20px;"></div>
+    </div>
+
+    <header class="main-header">
+        <h1>Página 25: Quiz de Classificação de Bens (Kerin et al., 2007)</h1>
+    </header>
+
+    <div class="intro-text">
+        Teste seus conhecimentos com base na Tabela 1 de Kerin et al. (2007). Esta classificação é vital para o arquiteto comercial, pois cada categoria de bem exige uma estratégia de layout, iluminação e localização distintas. Responda às questões e confira seu desempenho.
+    </div>
+
+    <div id="quiz-goods-container" style="margin-top: 30px;">
+        
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>1. Com base na tabela, qual categoria de bem é caracterizada por compras frequentes, onde o consumidor despende pequeno esforço e pouco tempo comprando?</strong></p>
+            <label><input type="radio" name="qg1" value="conveniência"> Bens de Conveniência (Ex: Sabonete, pasta de dentes)</label><br>
+            <label><input type="radio" name="qg1" value="comparada"> Bens de Compra Comparada (Ex: Roupas, TVs)</label><br>
+            <label><input type="radio" name="qg1" value="especialidade"> Bens de Especialidade (Ex: Carros de luxo)</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>2. Qual o perfil de distribuição para Bens de Especialidade?</strong></p>
+            <label><input type="radio" name="qg2" value="pulverizada"> Pulverizada; muitos varejistas.</label><br>
+            <label><input type="radio" name="qg2" value="selecionada"> Grande número de varejistas selecionados.</label><br>
+            <label><input type="radio" name="qg2" value="muito_limitado"> Muito limitado.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>3. De acordo com a tabela, um consumidor que compra um "relógio Rolex" demonstra que nível de fidelidade à marca?</strong></p>
+            <label><input type="radio" name="qg3" value="consciente"> Consciente da marca, mas aceita substitutos.</label><br>
+            <label><input type="radio" name="qg3" value="prefere"> Prefere marcas específicas, mas aceita substitutos.</label><br>
+            <label><input type="radio" name="qg3" value="muito_fiel"> Muito fiel à marca; aceita substitutos.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>4. Qual é o principal foco da promoção para Bens de Compra Comparada (como roupas)?</strong></p>
+            <label><input type="radio" name="qg4" value="preço_disponibilidade"> Preço, disponibilidade e ênfase no conhecimento da marca.</label><br>
+            <label><input type="radio" name="qg4" value="ênfase_diferenciação"> Ênfase na diferenciação dos concorrentes.</label><br>
+            <label><input type="radio" name="qg4" value="status_exclusividade"> Exclusividade da marca e ênfase do status.</label>
+        </div>
+
+        <div class="point-card scroll-reveal visible" style="margin-bottom: 20px;">
+            <p><strong>5. Bens "Não-procurados" (como planos funerais) exigem qual estratégia de promoção, segundo a tabela?</strong></p>
+            <label><input type="radio" name="qg5" value="ênfase_concorrentes"> Ênfase na diferenciação dos concorrentes.</label><br>
+            <label><input type="radio" name="qg5" value="conhecimento_essencial"> Conhecimento da marca é essencial.</label><br>
+            <label><input type="radio" name="qg5" value="status_urgência"> Exclusividade e status, aliados ao sentimento de urgência.</label>
+        </div>
+
+        <button class="nav-btn" onclick="checkGoodsQuiz()" style="width: 100%; margin-top: 20px; background: var(--accent); color: white; border: none; padding: 15px; cursor: pointer;">Finalizar Quiz</button>
+        
+        <div id="goods-feedback" class="question-box" style="display:none; margin-top: 20px;"></div>
+    </div>
+
+    <header class="main-header">
+        <h1>Matriz de Comparação Técnica</h1>
+    </header>
+
+    <div class="intro-text">
+        Para consolidar o conhecimento sobre o comportamento de consumo, utilize o menu abaixo para consultar a <strong>Tabela 1</strong>. Esta matriz é a base para definir o zoneamento e a atmosfera de qualquer projeto de arquitetura comercial.
+    </div>
+
+    <div class="point-card" style="margin-top: 30px; padding: 0;">
+        <button onclick="toggleTable()" style="width: 100%; padding: 20px; background: var(--secondary); color: white; border: none; text-align: left; font-size: 1.1rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+            <span>[+] Clique para Expandir: Tabela 1 - Tipos de Bens de Consumo</span>
+            <span id="drop-icon">▼</span>
+        </button>
+
+        <div id="table-content" style="display: none; padding: 20px; overflow-x: auto; background: #fff;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; border: 1px solid #ddd;">
+                <thead style="background: #f4f4f4;">
+                    <tr>
+                        <th style="border: 1px solid #ddd; padding: 10px;">Base de Comparação</th>
+                        <th style="border: 1px solid #ddd; padding: 10px;">Conveniência</th>
+                        <th style="border: 1px solid #ddd; padding: 10px;">Compra Comparada</th>
+                        <th style="border: 1px solid #ddd; padding: 10px;">Especialidade</th>
+                        <th style="border: 1px solid #ddd; padding: 10px;">Não-Procurado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold; background: #fafafa;">Produto</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Pastas de dentes, sabonete, sabão em pó.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Câmeras, TVs, malas, roupas.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Carros Rolls Royce, relógios Rolex.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Plano funeral, dicionário.</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold; background: #fafafa;">Preço</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Relativamente barato.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Relativamente caro.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Geralmente muito caro.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Varia.</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold; background: #fafafa;">Local (Distribuição)</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Pulverizada; muitos varejistas.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Grande número de varejistas selecionados.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Muito limitado.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Geralmente limitado.</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold; background: #fafafa;">Promoção</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Preço, disponibilidade e ênfase no conhecimento da marca.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Ênfase na diferenciação dos concorrentes.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Exclusividade da marca e ênfase no status.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Conhecimento da marca é essencial.</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold; background: #fafafa;">Fidelidade à Marca</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Consciente da marca; aceita substitutos.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Prefere marcas específicas; aceita substitutos.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Muito fiel à marca; não aceita substitutos facilmente.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Aceita substitutos.</td>
+                    </tr>
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold; background: #fafafa;">Comportamento</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Compras frequentes; pequeno esforço.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Compras pouco frequentes; necessita tempo de comparação.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Compra pouco frequente; exige pesquisa e tempo amplo.</td>
+                        <td style="border: 1px solid #ddd; padding: 10px;">Compra muito pouco frequente; necessita comparação.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p style="font-size: 0.8rem; color: #777; margin-top: 10px;">Fonte: Adaptado de Kerin et al., 2007, p.257</p>
+        </div>
+    </div>
+
+    <div class="professor-note">
+        <strong>Aplicação na Arquitetura:</strong> Observe como os <strong>Bens de Especialidade</strong> possuem distribuição limitada. Isso justifica projetos de lojas de luxo (flagships) em localizações exclusivas, com áreas de espera amplas, pois o consumidor está disposto a investir <em>tempo</em> e <em>deslocamento</em>. Já para <strong>Conveniência</strong>, o layout deve ser focado em velocidade.
+    </div>
+</div>
+
+<div id="page26" class="page">
+    <header class="main-header">
+        <h1>Página 26: Desafio de Reconstrução da Tabela 2</h1>
+    </header>
+
+    <div class="intro-text">
+        Baseando-se na Tabela 2, que sintetiza as mudanças nos espaços comerciais de 1950 à atualidade, tente reconstruir a matriz. Os cabeçalhos e a primeira coluna estão fixos. Arraste os cartões de <strong>CARACTERÍSTICA</strong> para a cédula correta.
+    </div>
+
+    <div class="point-card" style="margin-top: 30px; overflow-x: auto; padding: 0;">
+        <table id="full-drag-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+            <thead style="background: var(--secondary); color: white;">
+                <tr>
+                    <th style="padding: 15px; width: 15%;">Atributos (FIXO)</th>
+                    <th style="padding: 15px; width: 28.33%;">Modernidade<br><small>(de 1950 a 1970)</small> (FIXO)</th>
+                    <th style="padding: 15px; width: 28.33%;">Pós-modernidade<br><small>(de 1970 a 1990)</small> (FIXO)</th>
+                    <th style="padding: 15px; width: 28.33%;">Hipermodernidade<br><small>(Após os anos 1990)</small> (FIXO)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Tipo de Loja</td>
+                    <td id="tloja_m" class="drop-zone t_cell" data-target="m1"></td>
+                    <td id="tloja_p" class="drop-zone t_cell" data-target="p1"></td>
+                    <td id="tloja_h" class="drop-zone t_cell" data-target="h1"></td>
+                </tr>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Oferta</td>
+                    <td id="oferta_m" class="drop-zone t_cell" data-target="m2"></td>
+                    <td id="oferta_p" class="drop-zone t_cell" data-target="p2"></td>
+                    <td id="oferta_h" class="drop-zone t_cell" data-target="h2"></td>
+                </tr>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Estratégia de Segmentação</td>
+                    <td id="seg_m" class="drop-zone t_cell" data-target="m3"></td>
+                    <td id="seg_p" class="drop-zone t_cell" data-target="p3"></td>
+                    <td id="seg_h" class="drop-zone t_cell" data-target="h3"></td>
+                </tr>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Alvo</td>
+                    <td id="alvo_m" class="drop-zone t_cell" data-target="m4"></td>
+                    <td id="alvo_p" class="drop-zone t_cell" data-target="p4"></td>
+                    <td id="alvo_h" class="drop-zone t_cell" data-target="h4"></td>
+                </tr>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Perfil dos comerciantes</td>
+                    <td id="comer_m" class="drop-zone t_cell" data-target="m5"></td>
+                    <td id="comer_p" class="drop-zone t_cell" data-target="p5"></td>
+                    <td id="comer_h" class="drop-zone t_cell" data-target="h5"></td>
+                </tr>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Princípios de localização</td>
+                    <td id="loc_m" class="drop-zone t_cell" data-target="m6"></td>
+                    <td id="loc_p" class="drop-zone t_cell" data-target="p6"></td>
+                    <td id="loc_h" class="drop-zone t_cell" data-target="h6"></td>
+                </tr>
+                <tr>
+                    <td style="background: #fafafa; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd;">Significado dos espaços comerciais</td>
+                    <td id="sig_m" class="drop-zone t_cell" data-target="m7"></td>
+                    <td id="sig_p" class="drop-zone t_cell" data-target="p7"></td>
+                    <td id="sig_h" class="drop-zone t_cell" data-target="h7"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="text-align: right; font-size: 0.8rem; color: #777; margin-top: 5px;">
+        Fonte: Adaptado pela autora com base em CACHINHO e SALGUEIRO, 2010.
+    </div>
+
+    <div class="point-card" style="margin-top: 30px;">
+        <h3>Cartões de Conteúdo (Transcrições)</h3>
+        <p style="color: #777; font-size: 0.9rem; margin-bottom: 15px;">Arraste os textos para as cédulas vazias acima.</p>
+        <div id="table-draggables-all" style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-start;">
             
-            if (mIdx === 1) {
-                generatedJS += `const stave1 = new VF.Stave(10, ${yPos}, finalWidth * 0.45);\nstave1.addClef("${clefValue}").addTimeSignature("${timeSigStr}").addKeySignature("${keySig}");\n`;
-            } else {
-                const isNewLine = (mIdx - 1) % 2 === 0;
-                const prevStave = `stave${mIdx - 1}`;
-                const width = isNewLine ? "finalWidth * 0.90" : "finalWidth * 0.50";
-                const xPos = isNewLine ? "10" : `${prevStave}.width + ${prevStave}.x`;
-                generatedJS += `const stave${mIdx} = new VF.Stave(${xPos}, ${yPos}, ${width});\n`;
-            }
-            generatedJS += `stave${mIdx}.setContext(context).draw();\n`;
-            generatedJS += `VF.Formatter.FormatAndDraw(context, stave${mIdx}, notes${mIdx});\n\n`;
-        });
+            <div id="full_m1" class="drag-item-full" draggable="true" data-type="m1">• Lojas tradicionais: ancoradas numa gama limitada de bens e serviços;<br>• Hierarquizadas em função das classes sociais.</div>
+            <div id="full_p1" class="drag-item-full" draggable="true" data-type="p1">• Novos formatos e conceitos: centros comerciais, megastores, hipermercados;<br>• Segmentadas por estilos de vida e valores socioculturais.</div>
+            <div id="full_h1" class="drag-item-full" draggable="true" data-type="h1">• Diversificação de conceitos, espaços de comércio e lazer, lojas de experiências;<br>• Fragmentadas por temas e experiências de consumo.</div>
 
-        outputBox.value = generatedJS;
-    } catch (e) {
-        console.error("Erro ao gerar código da biblioteca:", e);
-    }
-}
+            <div id="full_m2" class="drag-item-full" draggable="true" data-type="m2">• Bens e serviços de acordo com linhas padronizadas;<br>• Determinada pelos produtores.</div>
+            <div id="full_p2" class="drag-item-full" draggable="true" data-type="p2">• Bens e serviços de acordo com uma ampla variedade de linhas e nichos de mercado;<br>• Influenciada pelos consumidores.</div>
+            <div id="full_h2" class="drag-item-full" draggable="true" data-type="h2">• Bens, marcas, insígnias, ambiências, experiências;<br>• Influenciada pelos marketers, a ecologia e outros valores sociais.</div>
 
-// --- INITIALIZATION AND EVENT LISTENERS ---
+            <div id="full_m3" class="drag-item-full" draggable="true" data-type="m3">Preço e qualidade dos bens e serviços.</div>
+            <div id="full_p3" class="drag-item-full" draggable="true" data-type="p3">Valores socioculturais e estilos de vida.</div>
+            <div id="full_h3" class="drag-item-full" draggable="true" data-type="h3">Potencial dos signos dos objetos/marcas e das ambiências da compra.</div>
 
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Vincular campos de entrada para atualização automática
-    const inputs = ['notation', 'clef', 'keySig', 'timeSig', 'musicTitleInput', 'enableBeams'];
-    inputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('input', () => {
-                renderPreview();
-                renderFinal();
-                updateLibraryCode();
-            });
-        }
+            <div id="full_m4" class="drag-item-full" draggable="true" data-type="m4">Satisfação de necessidades</div>
+            <div id="full_p4" class="drag-item-full" draggable="true" data-type="p4">• Satisfação de necessidades e desejos;<br>• Realização de sonhos e fantasias.</div>
+            <div id="full_h4" class="drag-item-full" draggable="true" data-type="h4">Criação de espetáculo e promoção de valores sociais: convivência, felicidade, ecologia…</div>
+
+            <div id="full_m5" class="drag-item-full" draggable="true" data-type="m5">Pequenos comerciantes.</div>
+            <div id="full_p5" class="drag-item-full" draggable="true" data-type="p5">Cadeias de distribuição.</div>
+            <div id="full_h5" class="drag-item-full" draggable="true" data-type="h5">Cadeias de distribuição e comerciantes independentes</div>
+
+            <div id="full_m6" class="drag-item-full" draggable="true" data-type="m6">Centralidade e proximidade.</div>
+            <div id="full_p6" class="drag-item-full" draggable="true" data-type="p6">Acessibilidade e facilidade de estacionar.</div>
+            <div id="full_h6" class="drag-item-full" draggable="true" data-type="h6">Espaços topológicos e hiper-reais, lugares virtuais.</div>
+
+            <div id="full_m7" class="drag-item-full" draggable="true" data-type="m7">Espaços comerciais.</div>
+            <div id="full_p7" class="drag-item-full" draggable="true" data-type="p7">Lugares de consumo.</div>
+            <div id="full_h7" class="drag-item-full" draggable="true" data-type="h7">Espaços e lugares de experiências de vida.</div>
+        </div>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota Projetual:</strong> A <strong>Hipermodernidade</strong> exige que o arquiteto olhe para a marca como um **signo** e o espaço como um **espetáculo**. Seus projetos atuais devem promover valores como felicidade e ecologia, integrando o físico (lugares reais) com o digital (lugares virtuais).
+    </div>
+
+    <button class="nav-btn" onclick="validateFullTable()" style="width: 100%; margin-top: 20px; background: #222; color: white; border: none; padding: 15px; cursor: pointer; border-radius: 5px;">Validar Reconstrução</button>
+    
+    <div id="full-table-feedback" class="question-box" style="display:none; margin-top: 20px;"></div>
+</div>
+
+<div id="page27" class="page">
+    <header class="main-header">
+        <h1>Página 27: A Anatomia do Ponto de Venda</h1>
+    </header>
+
+    <div class="intro-text">
+        Segundo <strong>Juracy Parente (2000)</strong>, o ambiente físico é um dos principais diferenciais competitivos no varejo. Abaixo, detalhamos os elementos fundamentais que, quando harmonizados, transformam o espaço em uma ferramenta de persuasão.
+ <p> Segundo Parente 
+(2000), são vários os elementos do ponto de venda que podem influenciar 
+na compra. Nesse sentido, o tamanho da loja, o layout interno e externo, a 
+decoração, as cores, os aromas, a iluminação são fundamentais para a boa 
+apresentação do ponto de venda.</p>
+ </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. Tamanho da Loja (Volumetria e Percepção)</h3>
+        <p>O tamanho determina a <strong>autoridade da marca</strong>. Lojas amplas sugerem variedade e prestígio, enquanto espaços compactos podem criar uma sensação de exclusividade ou urgência.
+        <br><strong>Foco Projetual:</strong> A escala deve ser proporcional ao ticket médio. Lojas de luxo exigem grandes áreas de circulação ("espaço negativo") para valorizar o produto exposto.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Layout Interno e Externo (Fluxo e Fachada)</h3>
+        <p>O layout externo (fachada) é o convite; o interno é o guia. O layout organiza o fluxo, minimiza o esforço do cliente e maximiza a exposição visual.
+        <br><strong>Foco Projetual:</strong> Utilizar o layout para criar <strong>pontos focais</strong> e gerenciar as "zonas quentes" e "frias" do estabelecimento, garantindo que o cliente percorra o caminho planejado pelo merchandising.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. Decoração e Mobiliário</h3>
+        <p>A decoração materializa o conceito da marca. Não se trata apenas de estética, mas de suporte funcional para os produtos.
+        <br><strong>Foco Projetual:</strong> Escolha de texturas e materiais que reforcem o posicionamento. O uso de madeira traz aconchego (conforto); o metal e vidro trazem modernidade e tecnologia.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>4. Cores e Aromas (Neuromarketing)</h3>
+        <p>As cores afetam a percepção do tempo e do apetite, enquanto os aromas (marketing olfativo) criam memórias afetivas duradouras.
+        <br><strong>Foco Projetual:</strong> Cores quentes para compras por impulso; cores frias para decisões complexas. O aroma deve ser sutil e coerente com o público-alvo para aumentar o <em>dwell time</em> (tempo de permanência).</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>5. Iluminação (Contraste e Foco)</h3>
+        <p>A luz é o elemento que mais influencia a <strong>hierarquia visual</strong>. Ela direciona o olhar do consumidor para o que realmente importa.
+        <br><strong>Foco Projetual:</strong> Uso de luz dramática (alto contraste) para boutiques ou luz difusa e clara para supermercados. A temperatura de cor (K) deve ser ajustada para destacar as cores naturais dos produtos.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Conclusão Técnica:</strong> Parente nos lembra que o varejo é uma experiência multissensorial. Como arquitetos, nosso papel é orquestrar esses cinco elementos para que a "boa apresentação" citada pelo autor se traduza em rentabilidade e fidelização.
+    </div>
+
+    <div class="question-box">
+        <strong>Reflexão:</strong> Em um projeto de loja popular, qual desses elementos você priorizaria para transmitir "preço baixo" e "alta rotatividade", mantendo a qualidade de Parente?
+    </div>
+</div>
+
+<div id="page28" class="page">
+    <header class="main-header">
+        <h1>Página 28: O Limiar da Conversão</h1>
+    </header>
+
+    <div class="intro-text">
+        Segundo <strong>Parente (2000)</strong>, o layout externo é o elemento que provoca o <strong>primeiro impacto</strong>. Ele funciona como um filtro e um convite simultâneo, definindo em segundos se o consumidor atravessará o limiar do ponto de venda.
+    </div>
+
+    <h2 class="lecture-title">Aula: Arquitetura da Fachada e Atração</h2>
+    <p style="text-align: center; font-weight: 400; color: #777; margin-bottom: 40px;">Perspectiva Técnica: O Ponto de Venda como Ímã Visual</p>
+
+    <div class="scroll-reveal point-card">
+        <h3>1. A Psicologia do Primeiro Impacto</h3>
+        <p>Parente argumenta que a fachada não é apenas o limite físico, mas a <strong>promessa da marca</strong>. O layout externo deve comunicar imediatamente o posicionamento (luxo, popular, tecnológico) para atrair o público-alvo correto e repelir o público não desejado, otimizando o fluxo interno.</p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>2. Elementos de Atração Visual</h3>
+        <p>Para garantir que o layout externo cumpra sua função, o arquiteto deve orquestrar três pilares fundamentais:
+        <ul>
+            <li><strong>Transparência (Vitrines):</strong> Funcionam como uma "prévia" da experiência interna. Menos é mais: vitrines superlotadas geram fadiga visual; vitrines minimalistas geram curiosidade e percepção de valor alto.</li>
+            <li><strong>Sinalização e Logotipo:</strong> A altura e a iluminação da marca devem ser visíveis tanto para o pedestre quanto para o fluxo veicular (se aplicável).</li>
+            <li><strong>Acessibilidade do Limiar:</strong> Entradas amplas e sem barreiras físicas (degraus, portas pesadas) reduzem a "fricção de entrada".</li>
+        </ul>
+        </p>
+    </div>
+
+    <div class="scroll-reveal point-card">
+        <h3>3. O Layout Externo como Diferenciador Urbano</h3>
+        <p>Em ambientes saturados (como shoppings ou centros comerciais densos), o impacto externo depende do <strong>contraste</strong>. Parente sugere que o layout deve se destacar da vizinhança imediata através de cores, texturas ou sistemas de iluminação que rompam a monotonia visual da rua.</p>
+    </div>
+
+    <div class="professor-note">
+        <strong>Nota do Professor:</strong> Lembre-se: o interior mais brilhante do mundo é inútil se o layout externo falhar em convencer o cliente a entrar. A fachada é o "aperto de mão" inicial entre o negócio e o consumidor. Como arquitetos, projetamos esse impacto para ser memorável.
+    </div>
+
+    <div class="question-box">
+        <strong>Desafio Projetual:</strong> Ao projetar uma fachada em uma rua histórica, como você equilibraria o "impacto de atração" solicitado por Parente com as restrições de preservação do patrimônio?
+    </div>
+</div>
+</div>
+
+<script>
+
+// Logic for Full Table Drag and Drop
+const allTableItems = document.querySelectorAll('#table-draggables-all .drag-item-full');
+const tableZones = document.querySelectorAll('#full-drag-table .drop-zone');
+
+allTableItems.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+        // e.dataTransfer.setData('text', item.id);
+        e.dataTransfer.setData('text/plain', item.id); // For browser compatibility
     });
-
-    // 2. Lógica do Botão de Copiar (API Moderna)
-    const copyBtn = document.getElementById('copyCodeBtn');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', () => {
-            const code = document.getElementById('generatedLibraryCode').value;
-            navigator.clipboard.writeText(code).then(() => {
-                const originalText = copyBtn.innerText;
-                copyBtn.innerText = "Copiado!";
-                copyBtn.style.background = "#28a745";
-                setTimeout(() => { 
-                    copyBtn.innerText = originalText;
-                    copyBtn.style.background = "#343a40";
-                }, 2000);
-            });
-        });
-    }
-
-    // 3. Execução Inicial
-    renderPreview();
-    renderFinal();
-    updateLibraryCode();
 });
-    </script>
+
+tableZones.forEach(zone => {
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); });
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        // const id = e.dataTransfer.getData('text');
+        const id = e.dataTransfer.getData('text/plain');
+        const draggedItem = document.getElementById(id);
+        
+        // Prevent stacking, allow replace
+        if (zone.children.length > 0) {
+            // Zone already has content, return original content to the bank?
+            // Or just append. Append is simpler.
+            zone.appendChild(draggedItem);
+        } else {
+            zone.appendChild(draggedItem);
+        }
+    });
+});
+
+// Initializing Drag-and-Drop parameters for version 2
+// Setup logic, not executable here.
+const dragItemsGoods = document.querySelectorAll('#draggable-items .drag-item');
+const dropZonesGoods = document.querySelectorAll('#columns-goods .drop-zone');
+
+dragItemsGoods.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', item.id);
+    });
+});
+
+dropZonesGoods.forEach(zone => {
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dataGoods = e.dataTransfer.getData('text/plain');
+        const draggedItemGoods = document.getElementById(dataGoods);
+        zone.appendChild(draggedItemGoods);
+    });
+});
+
+function checkDragAndDropGoods() {
+    let correctCount = 0;
+    const totalItems = 11; // Defined number of drag-items
+    const zonesGoodsCheck = {
+        conveniência: document.getElementById('conveniência'),
+        comparada: document.getElementById('comparada'),
+        especialidade: document.getElementById('especialidade'),
+        não_procurado: document.getElementById('não_procurado')
+    };
+
+    // Checking each drop zone for correct content
+    for (const [zoneId, zone] of Object.entries(zonesGoodsCheck)) {
+        const items = zone.querySelectorAll('.drag-item');
+        items.forEach(item => {
+            if (item.getAttribute('value') === zoneId) {
+                correctCount++;
+            }
+        });
+    }
+
+    const feedback = document.getElementById('drag-feedback');
+    feedback.style.display = 'block';
+    
+    if (correctCount === totalItems) {
+        feedback.style.borderColor = '#28a745'; // Green for perfect
+        feedback.style.color = '#155724';
+        feedback.innerHTML = `Excelente! Resultado: ${correctCount}/${totalItems}. Você classificou corretamente todas as características de Kerin et al. (2007).`;
+    } else if (correctCount >= 8) {
+        feedback.style.borderColor = '#ffc107'; // Yellow for passing
+        feedback.style.color = '#856404';
+        feedback.innerHTML = `Bom trabalho. Resultado: ${correctCount}/${totalItems}. Revise as distinções entre bens de luxo (Especialidade) e bens de compra planejada (Compra Comparada).`;
+    } else {
+        feedback.style.borderColor = '#dc3545'; // Red for low score
+        feedback.style.color = '#721c24';
+        feedback.innerHTML = `Resultado: ${correctCount}/${totalItems}. Sugerimos uma revisão completa da Tabela 1. Atenção especial aos perfis de 'Comportamento' e 'Distribuição'.`;
+    }
+}
+
+    function showPage(num) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('page' + num).classList.add('active');
+        event.target.classList.add('active');
+        window.scrollTo(0, 0);
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) entry.target.classList.add('visible');
+        });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+
+// Add this to your existing script
+function checkFullQuiz() {
+    const feedback = document.getElementById('quiz-feedback');
+    const q1 = document.querySelector('input[name="q1"]:checked');
+    const q2 = document.querySelector('input[name="q2"]:checked');
+    const q3 = document.querySelector('input[name="q3"]:checked');
+    
+    if (!q1 || !q2 || !q3) {
+        feedback.style.display = 'block';
+        feedback.style.background = '#fff3cd';
+        feedback.style.color = '#856404';
+        feedback.innerHTML = "<strong>Atenção:</strong> Por favor, responda todas as questões antes de verificar.";
+        return;
+    }
+
+    let score = 0;
+    if (q1.value === 'correct') score++;
+    if (q2.value === 'correct') score++;
+    if (q3.value === 'correct') score++;
+
+    feedback.style.display = 'block';
+    feedback.style.background = score === 3 ? '#d4edda' : '#f8d7da';
+    feedback.style.color = score === 3 ? '#155724' : '#721c24';
+
+    let message = `<strong>Resultado: ${score}/3</strong><br><br>`;
+    if (score === 3) {
+        message += "Excelente! Você compreende a hibridização e o branding espacial do mercado atual.";
+    } else {
+        message += "Algumas respostas estão incorretas. Revise os conceitos de 'Espaços de Múltiplos Usos' e 'Healthcare Design'.";
+    }
+    
+    feedback.innerHTML = message;
+}
+
+function checkFinalQuiz() {
+    let score = 0;
+    const total = 10;
+    for (let i = 1; i <= total; i++) {
+        const q = document.querySelector(`input[name="q${i}"]:checked`);
+        if (q && q.value === 'correct') score++;
+    }
+
+    const feedback = document.getElementById('final-feedback');
+    feedback.style.display = 'block';
+    
+    if (score >= 7) {
+        feedback.style.borderColor = '#28a745';
+        feedback.style.color = '#155724';
+        feedback.innerHTML = `Excelente! Resultado: ${score}/${total}. Você domina as nuances entre fluxos rápidos e complexidade de restaurantes.`;
+    } else {
+        feedback.style.borderColor = '#dc3545';
+        feedback.style.color = '#721c24';
+        feedback.innerHTML = `Resultado: ${score}/${total}. Revise os conceitos de rotatividade e exigências de áreas de armazenamento.`;
+    }
+}
+
+function checkGoodsQuiz() {
+    let score = 0;
+    const total = 5;
+    
+    // Define the correct answers based on the table in image_0.png
+    const answers = {
+        qg1: 'conveniência', // Based on Comportamento de compra
+        qg2: 'muito_limitado',  // Based on Local (distribuição)
+        qg3: 'muito_fiel',   // Based on Fidelidade à marca
+        qg4: 'ênfase_diferenciação', // Based on Promoção
+        qg5: 'conhecimento_essencial' // Based on Promoção
+    };
+
+    for (let i = 1; i <= total; i++) {
+        const selectedRadio = document.querySelector(`input[name="qg${i}"]:checked`);
+        if (selectedRadio && selectedRadio.value === answers[`qg${i}`]) {
+            score++;
+        }
+    }
+
+    const feedback = document.getElementById('goods-feedback');
+    feedback.style.display = 'block';
+    
+    if (score === total) {
+        feedback.style.borderColor = '#28a745'; // Green for perfect score
+        feedback.style.color = '#155724';
+        feedback.innerHTML = `Excelente! Resultado: ${score}/${total}. Você domina os conceitos técnicos de Kerin et al. (2007).`;
+    } else if (score >= 3) {
+        feedback.style.borderColor = '#ffc107'; // Yellow for passing score
+        feedback.style.color = '#856404';
+        feedback.innerHTML = `Bom trabalho. Resultado: ${score}/${total}. Revise os parâmetros técnicos de 'Distribuição' e 'Promoção' para bens de luxo e bens não-procurados.`;
+    } else {
+        feedback.style.borderColor = '#dc3545'; // Red for low score
+        feedback.style.color = '#721c24';
+        feedback.innerHTML = `Resultado: ${score}/${total}. Sugerimos uma revisão completa da Tabela 1. Atenção às distinções comportamentais entre conveniência, especialidade e compra comparada.`;
+    }
+}
+
+
+function toggleTable() {
+    const content = document.getElementById('table-content');
+    const icon = document.getElementById('drop-icon');
+    if (content.style.display === "none") {
+        content.style.display = "block";
+        icon.innerText = "▲";
+    } else {
+        content.style.display = "none";
+        icon.innerText = "▼";
+    }
+}
+
+function validateFullTable() {
+    let strikes = 0;
+    const totalCells = 21; // 7 rows * 3 columns
+    const zonesToValidate = document.querySelectorAll('#full-drag-table .drop-zone');
+    
+    zonesToValidate.forEach(zone => {
+        const targetType = zone.getAttribute('data-target');
+        const items = zone.querySelectorAll('.drag-item-full');
+        
+        if (items.length === 1) { // Each cell must have exactly 1 item
+            if (items[0].getAttribute('data-type') === targetType) {
+                strikes++;
+            }
+        }
+    });
+
+    const fbBox = document.getElementById('full-table-feedback');
+    fbBox.style.display = 'block';
+    fbBox.innerHTML = `<strong>Resultado: ${strikes}/${totalCells} acertos.</strong><br>` + 
+                   (strikes === totalCells ? "Parabéns! Você reconstruiu a matriz histórica e tipológica com precisão." : "Revise a Tabela 2. Atente para a transição dos 'Pequenos Comerciantes' na Modernidade para 'Cadeias e Independentes' na Hipermodernidade.");
+}
+
+</script>
+
 </body>
 </html>
